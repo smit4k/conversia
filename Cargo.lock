@@ -216,6 +216,7 @@ dependencies = [
  "dotenv",
  "poise",
  "serenity",
+ "tempfile",
  "tokio",
 ]
 

@@ -7,6 +7,7 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
 mod commands;
+mod conversion;
 
 async fn event_handler(
     _ctx: &serenity::Context,
@@ -33,7 +34,7 @@ async fn main() {
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![commands::ping::ping()],
+            commands: vec![commands::ping::ping(), conversion::document::convert_document()],
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some("c!".into()),
                 ..Default::default()
