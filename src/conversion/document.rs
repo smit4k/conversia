@@ -6,7 +6,7 @@ use poise::serenity_prelude::{Attachment, CreateAttachment};
 use crate::{Context, Error};
 
 /// Convert a document
-#[poise::command(slash_command, prefix_command)]
+#[poise::command(slash_command)]
 pub async fn convert_document(
     ctx: Context<'_>,
     #[description = "File to convert"] file: Attachment,
