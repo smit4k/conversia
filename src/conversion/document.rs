@@ -1,4 +1,5 @@
 use std::process::Command;
+use std::path::Path;
 use tempfile::Builder;
 use tokio::fs;
 use poise::serenity_prelude::{Attachment, CreateAttachment};
@@ -124,10 +125,17 @@ pub async fn convert_document(
                     return Err(e.into())
                 }
             };
+
+            let base_name = Path::new(&file.filename)
+                .file_stem()
+                .unwrap_or_else(|| std::ffi::OsStr::new("converted"))
+                .to_string_lossy()
+                .to_string();
+
             // Create an attachment from the converted file
             let attachment = CreateAttachment::bytes(
                 converted_file_data,
-                format!("converted.{}", pandoc_format),
+                format!("{}.{}", base_name, pandoc_format),
             );
 
             let embed = CreateEmbed::default()
