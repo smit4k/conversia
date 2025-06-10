@@ -8,24 +8,6 @@ use crate::{Context, Error};
 use std::path::Path;
 use tokio::fs;
 
-async fn create_zip_from_bytes(
-    filename: &str,
-    data: &[u8],
-    zip_path: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let file = File::create(zip_path)?;
-    let mut zip = ZipWriter::new(file);
-    
-    let options = zip::write::SimpleFileOptions::default()
-        .compression_method(CompressionMethod::Deflated)
-        .unix_permissions(0o755);
-    
-    zip.start_file(filename, options)?;
-    zip.write_all(data)?;
-    zip.finish()?;
-    
-    Ok(())
-}
 
 /// Compress a file to ZIP
 #[poise::command(slash_command)]
@@ -126,5 +108,24 @@ pub async fn compress(
         }
     }
 
+    Ok(())
+}
+
+async fn create_zip_from_bytes(
+    filename: &str,
+    data: &[u8],
+    zip_path: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let file = File::create(zip_path)?;
+    let mut zip = ZipWriter::new(file);
+    
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(CompressionMethod::Deflated)
+        .unix_permissions(0o755);
+    
+    zip.start_file(filename, options)?;
+    zip.write_all(data)?;
+    zip.finish()?;
+    
     Ok(())
 }
