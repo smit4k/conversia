@@ -10,3 +10,4 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 dotenv = "0.15"
 tempfile = "3.6"
 image = "0.24"
+zip = "4.0.0"

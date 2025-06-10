@@ -34,7 +34,7 @@ async fn main() {
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![commands::ping::ping(), conversion::document::convert_document(), conversion::image::convert_image()],
+            commands: vec![commands::ping::ping(), commands::compress::compress(), conversion::document::convert_document(), conversion::image::convert_image()],
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some("c!".into()),
                 ..Default::default()
