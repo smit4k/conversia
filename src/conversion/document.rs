@@ -135,7 +135,7 @@ pub async fn convert_document(
             // Create an attachment from the converted file
             let attachment = CreateAttachment::bytes(
                 converted_file_data,
-                format!("{}.{}", base_name, pandoc_format),
+                format!("{}.{}", base_name, if pandoc_format == "markdown" { "md" } else { pandoc_format }),
             );
 
             let embed = CreateEmbed::default()
