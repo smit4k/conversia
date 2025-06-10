@@ -23,7 +23,8 @@ pub async fn ping(ctx: Context<'_>) -> Result<(), Error> {
     
     let embed = CreateEmbed::default()
         .title("Pong!")
-        .field("Latency:", latency_text, true);
+        .field("Latency:", latency_text.clone(), true)
+        .color(if latency_text == "Unknown" { 0xff4444 } else { 0x44ff44 });
 
         let reply = poise::CreateReply::default().embed(embed);
         ctx.send(reply).await?;
