@@ -289,6 +289,7 @@ name = "conversia"
 version = "0.1.0"
 dependencies = [
  "dotenv",
+ "id3",
  "image",
  "poise",
  "serenity",
@@ -982,6 +983,17 @@ dependencies = [
  "zerofrom",
  "zerotrie",
  "zerovec",
+]
+
+[[package]]
+name = "id3"
+version = "1.16.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aadb14a5ba1a0d58ecd4a29bfc9b8f1d119eee24aa01a62c1ec93eb9630a1d86"
+dependencies = [
+ "bitflags 2.9.1",
+ "byteorder",
+ "flate2",
 ]
 
 [[package]]
