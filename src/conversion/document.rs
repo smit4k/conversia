@@ -7,30 +7,31 @@ use serenity::builder::CreateEmbed;
 
 use crate::{Context, Error};
 
+#[derive(Debug, poise::ChoiceParameter)]
+pub enum OutputFormat {
+    #[name = "Markdown (md)"]
+    Markdown,
+    #[name = "HTML"]
+    Html,
+    #[name = "PDF"]
+    Pdf,
+    #[name = "Word Document (docx)"]
+    Docx,
+}
+
 /// Convert a document
 #[poise::command(slash_command)]
 pub async fn convert_document(
     ctx: Context<'_>,
     #[description = "File to convert"] file: Attachment,
-    #[description = "Format to convert to (e.g., pdf, html, markdown, docx)"] output_format: String,
+    #[description = "Format to convert to (e.g., pdf, html, markdown, docx)"] output_format: OutputFormat,
 ) -> Result<(), Error> {
     // Map user-friendly format names to pandoc format names
-    let pandoc_format = match output_format.as_str() {
-        "md" | "markdown" => "markdown",
-        "html" => "html",
-        "pdf" => "pdf",
-        "docx" => "docx",
-        _ => {
-            let embed = CreateEmbed::new()
-                .title("❌ Unsupported output format")
-                .description("Supported formats: md, markdown, html, pdf, docx")
-                .color(0xff4444);
-
-                let reply = poise::CreateReply::default().embed(embed);
-                ctx.send(reply).await?;
-
-            return Ok(());
-        }
+    let pandoc_format = match output_format {
+        OutputFormat::Markdown => "markdown",
+        OutputFormat::Html => "html",
+        OutputFormat::Pdf => "pdf",
+        OutputFormat::Docx => "docx",
     };
 
     // Save the uploaded file with its original extension
