@@ -1,5 +1,5 @@
 use std::io::Cursor;
-use serenity::all::Attachment;
+use serenity::all::{Attachment, CreateEmbed};
 use poise::serenity_prelude::{CreateAttachment};
 use image::{load_from_memory, ImageFormat};
 
@@ -13,6 +13,8 @@ pub async fn convert_image(
     #[description = "Format to convert to (e.g., jpg, png, webp)"] output_format: String,
 ) -> Result<(), Error> {
     ctx.defer().await?;
+
+    let original_extension = file.filename.rsplit('.').next().unwrap_or("tmp");
 
     // Match user input formats to ImageFormats
     let format = match output_format.to_lowercase().as_str() {
@@ -42,7 +44,16 @@ pub async fn convert_image(
     // Upload the file back to Discord
     let filename = format!("converted.{}", output_format.to_lowercase());
     let attachment = CreateAttachment::bytes(output_bytes, filename);
-    let reply = poise::CreateReply::default().attachment(attachment);
+
+    let embed = CreateEmbed::default()
+        .title("✅ Conversion Complete")
+        .description(format!("{} → {}", original_extension, output_format))
+        .color(0x44ff44);
+
+    let reply = poise::CreateReply::default()
+        .embed(embed).
+        attachment(attachment);
+        
     ctx.send(reply).await?;
 
     Ok(())
