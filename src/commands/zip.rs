@@ -11,7 +11,7 @@ use tokio::fs;
 
 /// Compress a file to ZIP
 #[poise::command(slash_command)]
-pub async fn compress(
+pub async fn zip(
     ctx: Context<'_>,
     #[description = "File to compress"] file: Attachment,
 ) -> Result<(), Error> {
