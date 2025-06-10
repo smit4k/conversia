@@ -2,6 +2,7 @@ use std::process::Command;
 use tempfile::Builder;
 use tokio::fs;
 use poise::serenity_prelude::{Attachment, CreateAttachment};
+use serenity::builder::CreateEmbed;
 
 use crate::{Context, Error};
 
@@ -19,8 +20,14 @@ pub async fn convert_document(
         "pdf" => "pdf",
         "docx" => "docx",
         _ => {
-            ctx.say("Unsupported output format. Please use one of: md, markdown, html, pdf, docx.")
-                .await?;
+            let embed = CreateEmbed::new()
+                .title("❌ Unsupported output format")
+                .description("Supported formats: md, markdown, html, pdf, docx")
+                .color(0xff4444);
+
+                let reply = poise::CreateReply::default().embed(embed);
+                ctx.send(reply).await?;
+
             return Ok(());
         }
     };
@@ -32,7 +39,13 @@ pub async fn convert_document(
         .tempfile() {
         Ok(f) => f,
         Err(e) => {
-            ctx.say("Failed to create a temporary file for the input.").await?;
+            let embed = CreateEmbed::default()
+                .title("❌ Conversia ran into an error")
+                .description("Failed to create a temporary file for the input.")
+                .color(0xff4444);
+        
+            let reply = poise::CreateReply::default().embed(embed);
+            ctx.send(reply).await?;
             return Err(e.into());
         }
     };
@@ -41,14 +54,25 @@ pub async fn convert_document(
     let file_data = match file.download().await {
         Ok(data) => data,
         Err(e) => {
-            ctx.say("Failed to download the attached file.").await?;
+            let embed = CreateEmbed::default()
+            .title("❌ Conversia ran into an error")
+            .description("Failed to download the attached file.")
+            .color(0xff4444);
+        
+            let reply = poise::CreateReply::default().embed(embed);
+            ctx.send(reply).await?;
             return Err(e.into());
         }
     };
 
     if let Err(e) = fs::write(&input_path, file_data).await {
-        ctx.say("Failed to save the attached file to a temporary location.")
-            .await?;
+        let embed = CreateEmbed::default()
+            .title("❌ Conversia ran into an error")
+            .description("Failed to save the attached file to a temporary location.")
+            .color(0xff4444);
+        
+        let reply = poise::CreateReply::default().embed(embed);
+        ctx.send(reply).await?;
         return Err(e.into());
     }
 
@@ -63,7 +87,13 @@ pub async fn convert_document(
         .tempfile() {
         Ok(f) => f,
         Err(e) => {
-            ctx.say("Failed to create a temporary file for the output.").await?;
+            let embed = CreateEmbed::default()
+                .title("❌ Conversia ran into an error")
+                .description("Failed to create a temporary file for the output")
+                .color(0xff4444);
+            
+            let reply = poise::CreateReply::default().embed(embed);
+            ctx.send(reply).await?;
             return Err(e.into());
         }
     };
@@ -84,25 +114,43 @@ pub async fn convert_document(
             let converted_file_data = match fs::read(&output_path).await {
                 Ok(data) => data,
                 Err(e) => {
-                    ctx.say("Failed to read the converted file.").await?;
-                    return Err(e.into());
+                    let embed = CreateEmbed::default()
+                        .title("❌ Conversia ran into an error")
+                        .description("Failed to read the converted file.")
+                        .color(0xff4444);
+
+                    let reply = poise::CreateReply::default().embed(embed);
+                    ctx.send(reply).await?;
+                    return Err(e.into())
                 }
             };
-
             // Create an attachment from the converted file
             let attachment = CreateAttachment::bytes(
                 converted_file_data,
                 format!("converted.{}", pandoc_format),
             );
 
-            // Send the converted file back to the user
-            let reply = poise::CreateReply::default().attachment(attachment);
+            let embed = CreateEmbed::default()
+                .title("✅ Conversion Complete")
+                .description(format!("{} → {}", original_extension, pandoc_format))
+                .color(0x44ff44);
+
+            let reply = poise::CreateReply::default()
+                .embed(embed)
+                .attachment(attachment);
+
             ctx.send(reply).await?;
         }
         Ok(output) => {
             let error_message = String::from_utf8_lossy(&output.stderr);
-            ctx.say(format!("Conversion failed: {}", error_message))
-                .await?;
+
+            let embed = CreateEmbed::default()
+                .title("❌ Conversion failed")
+                .description(error_message)
+                .color(0xff4444);
+
+            let reply = poise::CreateReply::default().embed(embed);
+            ctx.send(reply).await?;
         }
         Err(error) => {
             ctx.say(format!("Failed to execute Pandoc: {}", error))
