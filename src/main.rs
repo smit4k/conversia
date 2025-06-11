@@ -8,6 +8,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 
 mod commands;
 mod conversion;
+mod encryption;
 
 async fn event_handler(
     _ctx: &serenity::Context,
@@ -39,7 +40,9 @@ async fn main() {
             commands::compress::compress(), 
             commands::metadata::audio_meta(),
             conversion::document::convert_document(), 
-            conversion::image::convert_image(),],
+            conversion::image::convert_image(),
+            encryption::encrypt::encrypt(),
+            encryption::decrypt::decrypt()],
             
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some("c!".into()),
