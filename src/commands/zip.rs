@@ -20,8 +20,8 @@ pub enum CompressionFormat {
     Zip,
     #[name = "tar.gz"]
     TarGz,
-    #[name = "tar.bz2"]
-    TarBz2,
+    #[name = "bz2"]
+    Bz2,
     #[name = "zst"]
     Zst
 }
@@ -75,9 +75,9 @@ pub async fn zip(
             format!("{}.tar.gz", original_name),
             format!("temp_compressed_{}.tar.gz", original_name),
         ),
-        CompressionFormat::TarBz2 => (
-            format!("{}.tar.bz2", original_name),
-            format!("temp_compressed_{}.tar.bz2", original_name),
+        CompressionFormat::Bz2 => (
+            format!("{}.bz2", original_name),
+            format!("temp_compressed_{}.bz2", original_name),
         ),
         CompressionFormat::Zst => (
             format!("{}.zst", original_name),
@@ -93,8 +93,8 @@ pub async fn zip(
         CompressionFormat::TarGz => {
             create_tar_from_bytes(&file.filename, &file_data, &temp_output_path).await
         },
-        CompressionFormat::TarBz2 => {
-            create_tar_bz2_from_bytes(&file.filename, &file_data, &temp_output_path).await
+        CompressionFormat::Bz2 => {
+            create_bz2_from_bytes(&file_data, &temp_output_path).await
         },
         CompressionFormat::Zst => {
             create_zst_from_bytes(&file.filename, &file_data, &temp_output_path).await
@@ -131,7 +131,7 @@ pub async fn zip(
                             match output_format {
                                 CompressionFormat::Zip => "zip",
                                 CompressionFormat::TarGz => "tar.gz",
-                                CompressionFormat::TarBz2 => "tar.bz2",
+                                CompressionFormat::Bz2 => "bz2",
                                 CompressionFormat::Zst => "zst",
                             }
                         )));
@@ -212,22 +212,19 @@ pub async fn create_tar_from_bytes(
     }).await?
 }
 
-pub async fn create_tar_bz2_from_bytes(
-    filename: &str,
+pub async fn create_bz2_from_bytes(
     data: &[u8],
-    tar_bz2_path: &str,
+    bz2_path: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let filename = filename.to_string();
     let data = data.to_vec();
-    let tar_bz2_path = tar_bz2_path.to_string();
+    let bz2_path = bz2_path.to_string();
 
     tokio::task::spawn_blocking(move || {
-        let tar_bz2 = File::create(&tar_bz2_path)?;
-        let enc = BzEncoder::new(tar_bz2, Bzip2Compression::best());
-        let mut tar = Builder::new(enc);
+        let output_file = File::create(&bz2_path)?;
+        let mut encoder = BzEncoder::new(output_file, Bzip2Compression::best());
 
-        tar.append_data(&mut tar::Header::new_gnu(), filename.as_str(), data.as_slice())?;
-        tar.finish()?;
+        encoder.write_all(&data)?;
+        encoder.finish()?; // Ensure everything is flushed
 
         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(())
     }).await?
