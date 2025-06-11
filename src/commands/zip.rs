@@ -12,6 +12,7 @@ use flate2::Compression as Flate2Compression;
 use tar::Builder;
 use bzip2::write::BzEncoder;
 use bzip2::Compression as Bzip2Compression;
+use tokio::task;
 
 #[derive(Debug, poise::ChoiceParameter)]
 pub enum CompressionFormat {
@@ -20,7 +21,9 @@ pub enum CompressionFormat {
     #[name = "tar.gz"]
     TarGz,
     #[name = "tar.bz2"]
-    TarBz2
+    TarBz2,
+    #[name = "zst"]
+    Zst
 }
 
 /// Compress a file
@@ -76,6 +79,10 @@ pub async fn zip(
             format!("{}.tar.bz2", original_name),
             format!("temp_compressed_{}.tar.bz2", original_name),
         ),
+        CompressionFormat::Zst => (
+            format!("{}.zst", original_name),
+            format!("temp_compressed_{}.zst", original_name),   
+        ),
     };
 
     // Compress the file
@@ -88,7 +95,10 @@ pub async fn zip(
         },
         CompressionFormat::TarBz2 => {
             create_tar_bz2_from_bytes(&file.filename, &file_data, &temp_output_path).await
-        }
+        },
+        CompressionFormat::Zst => {
+            create_zst_from_bytes(&file.filename, &file_data, &temp_output_path).await
+        },
     };
 
     match result {
@@ -122,6 +132,7 @@ pub async fn zip(
                                 CompressionFormat::Zip => "zip",
                                 CompressionFormat::TarGz => "tar.gz",
                                 CompressionFormat::TarBz2 => "tar.bz2",
+                                CompressionFormat::Zst => "zst",
                             }
                         )));
 
@@ -220,4 +231,24 @@ pub async fn create_tar_bz2_from_bytes(
 
         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(())
     }).await?
+}
+
+pub async fn create_zst_from_bytes(
+    filename: &str,
+    data: &[u8],
+    output_path: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let filename = filename.to_string();
+    let data = data.to_vec();
+    let output_path = output_path.to_string();
+
+    // Run the blocking compression in a spawn_blocking to avoid blocking the async runtime
+    task::spawn_blocking(move || -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut output_file = File::create(output_path)?;
+        let mut encoder = zstd::stream::Encoder::new(&mut output_file, 0)?; // 0 = default compression level
+        encoder.write_all(&data)?;
+        encoder.finish()?;
+        Ok(())
+    })
+    .await?
 }
