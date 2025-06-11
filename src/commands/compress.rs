@@ -4,6 +4,7 @@ use serenity::builder::CreateEmbed;
 use std::fs::File;
 use std::io::Write;
 use zip::{ZipWriter, CompressionMethod};
+use crate::utils::format_file_size;
 use crate::{Context, Error};
 use std::path::Path;
 use tokio::fs;
@@ -128,11 +129,11 @@ pub async fn compress(
                     let embed = CreateEmbed::new()
                         .title("✅ Compression Complete")
                         .description(format!(
-                            "**Original:** `{}` ({} bytes)\n**Compressed:** `{}` ({} bytes)\n**Saved:** {:.1}%",
+                            "**Original:** `{}` ({})\n**Compressed:** `{}` ({})\n**Saved:** {:.1}%",
                             file.filename,
-                            file_data.len(),
+                            format_file_size(file_data.len() as u64),
                             output_filename,
-                            compressed_size as usize,
+                            format_file_size(compressed_size as u64),
                             ratio
                         ))
                         .color(0x44ff44)

@@ -4,7 +4,7 @@ use tokio::fs;
 use poise::serenity_prelude::{Attachment, CreateAttachment};
 use serenity::builder::CreateEmbed;
 use secrecy::SecretString;
-use crate::{Context, Error};
+use crate::{utils::format_file_size, Context, Error};
 
 /// Decrypt a file using age (ChaCha20-Poly1305)
 #[poise::command(slash_command, ephemeral)]
@@ -58,8 +58,8 @@ pub async fn decrypt(
             file.filename, original_filename
         ))
         .field("Decryption Method", "Age (ChaCha20-Poly1305)", true)
-        .field("Encrypted Size", format!("{} bytes", file.size), true)
-        .field("Decrypted Size", format!("{} bytes", decrypted_data.len()), true)
+        .field("Encrypted Size", format_file_size(file.size.into()), true)
+        .field("Decrypted Size", format_file_size(decrypted_data.len().try_into().unwrap()), true)
         .color(0x44ff44);
     
     // Send response with decrypted file

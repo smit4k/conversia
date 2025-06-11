@@ -4,7 +4,7 @@ use tokio::fs;
 use poise::serenity_prelude::{Attachment, CreateAttachment};
 use serenity::builder::CreateEmbed;
 use secrecy::SecretString;
-use crate::{Context, Error};
+use crate::{utils::format_file_size, Context, Error};
 
 /// Encrypt a file using age (ChaCha20-Poly1305)
 #[poise::command(slash_command, ephemeral)]
@@ -59,8 +59,8 @@ pub async fn encrypt(
         ))
         .field("Password", format!("||{}||", password), false)
         .field("Encryption Method", "Age (ChaCha20-Poly1305)", true)
-        .field("Original Size", format!("{} bytes", file.size), true)
-        .field("Encrypted Size", format!("{} bytes", encrypted_data.len()), true)
+        .field("Original Size", format_file_size(file.size.into()), true)
+        .field("Encrypted Size", format_file_size(encrypted_data.len().try_into().unwrap()), true)
         .color(0x44ff44);
     
     // Send response with encrypted file

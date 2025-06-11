@@ -9,6 +9,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 mod commands;
 mod conversion;
 mod encryption;
+mod utils;
 
 async fn event_handler(
     _ctx: &serenity::Context,
