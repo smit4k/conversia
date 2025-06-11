@@ -1,4 +1,4 @@
-use poise::{serenity_prelude as serenity, CreateReply};
+use poise::{serenity_prelude as serenity};
 use poise::serenity_prelude::{Attachment, CreateAttachment};
 use serenity::builder::CreateEmbed;
 use std::fs::File;
@@ -8,8 +8,10 @@ use crate::{Context, Error};
 use std::path::Path;
 use tokio::fs;
 use flate2::write::GzEncoder;
-use flate2::Compression;
+use flate2::Compression as Flate2Compression;
 use tar::Builder;
+use bzip2::write::BzEncoder;
+use bzip2::Compression as Bzip2Compression;
 
 #[derive(Debug, poise::ChoiceParameter)]
 pub enum CompressionFormat {
@@ -17,6 +19,8 @@ pub enum CompressionFormat {
     Zip,
     #[name = "tar.gz"]
     TarGz,
+    #[name = "tar.bz2"]
+    TarBz2
 }
 
 /// Compress a file
@@ -68,6 +72,10 @@ pub async fn zip(
             format!("{}.tar.gz", original_name),
             format!("temp_compressed_{}.tar.gz", original_name),
         ),
+        CompressionFormat::TarBz2 => (
+            format!("{}.tar.bz2", original_name),
+            format!("temp_compressed_{}.tar.bz2", original_name),
+        ),
     };
 
     // Compress the file
@@ -77,6 +85,9 @@ pub async fn zip(
         }
         CompressionFormat::TarGz => {
             create_tar_from_bytes(&file.filename, &file_data, &temp_output_path).await
+        },
+        CompressionFormat::TarBz2 => {
+            create_tar_bz2_from_bytes(&file.filename, &file_data, &temp_output_path).await
         }
     };
 
@@ -110,6 +121,7 @@ pub async fn zip(
                             match output_format {
                                 CompressionFormat::Zip => "zip",
                                 CompressionFormat::TarGz => "tar.gz",
+                                CompressionFormat::TarBz2 => "tar.bz2",
                             }
                         )));
 
@@ -179,7 +191,28 @@ pub async fn create_tar_from_bytes(
 
     tokio::task::spawn_blocking(move || {
         let tar_gz = File::create(&tar_gz_path)?;
-        let enc = GzEncoder::new(tar_gz, Compression::default());
+        let enc = GzEncoder::new(tar_gz, Flate2Compression::default());
+        let mut tar = Builder::new(enc);
+
+        tar.append_data(&mut tar::Header::new_gnu(), filename.as_str(), data.as_slice())?;
+        tar.finish()?;
+
+        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(())
+    }).await?
+}
+
+pub async fn create_tar_bz2_from_bytes(
+    filename: &str,
+    data: &[u8],
+    tar_bz2_path: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let filename = filename.to_string();
+    let data = data.to_vec();
+    let tar_bz2_path = tar_bz2_path.to_string();
+
+    tokio::task::spawn_blocking(move || {
+        let tar_bz2 = File::create(&tar_bz2_path)?;
+        let enc = BzEncoder::new(tar_bz2, Bzip2Compression::best());
         let mut tar = Builder::new(enc);
 
         tar.append_data(&mut tar::Header::new_gnu(), filename.as_str(), data.as_slice())?;
