@@ -36,7 +36,7 @@ async fn main() {
         .options(poise::FrameworkOptions {
             commands: vec![commands::ping::ping(), 
             commands::about::about(), 
-            commands::zip::zip(), 
+            commands::compress::compress(), 
             commands::metadata::audio_meta(),
             conversion::document::convert_document(), 
             conversion::image::convert_image(),],

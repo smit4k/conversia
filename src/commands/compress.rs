@@ -13,6 +13,7 @@ use tar::Builder;
 use bzip2::write::BzEncoder;
 use bzip2::Compression as Bzip2Compression;
 use tokio::task;
+use lz4::EncoderBuilder;
 
 #[derive(Debug, poise::ChoiceParameter)]
 pub enum CompressionFormat {
@@ -23,12 +24,14 @@ pub enum CompressionFormat {
     #[name = "bz2"]
     Bz2,
     #[name = "zst"]
-    Zst
+    Zst,
+    #[name = "lz4"]
+    Lz4,
 }
 
 /// Compress a file
 #[poise::command(slash_command)]
-pub async fn zip(
+pub async fn compress(
     ctx: Context<'_>,
     #[description = "File to compress"] file: Attachment,
     #[description = "Compression format"] output_format: CompressionFormat,
@@ -83,6 +86,10 @@ pub async fn zip(
             format!("{}.zst", original_name),
             format!("temp_compressed_{}.zst", original_name),   
         ),
+        CompressionFormat::Lz4 => (
+            format!("{}.lz4", original_name),
+            format!("temp_compressed_{}.lz4", original_name),
+        )
     };
 
     // Compress the file
@@ -97,7 +104,10 @@ pub async fn zip(
             create_bz2_from_bytes(&file_data, &temp_output_path).await
         },
         CompressionFormat::Zst => {
-            create_zst_from_bytes(&file.filename, &file_data, &temp_output_path).await
+            create_zst_from_bytes(&file_data, &temp_output_path).await
+        },
+        CompressionFormat::Lz4 => {
+            create_lz4_from_bytes(&file_data, &temp_output_path).await
         },
     };
 
@@ -133,6 +143,7 @@ pub async fn zip(
                                 CompressionFormat::TarGz => "tar.gz",
                                 CompressionFormat::Bz2 => "bz2",
                                 CompressionFormat::Zst => "zst",
+                                CompressionFormat::Lz4 => "lz4",
                             }
                         )));
 
@@ -224,28 +235,41 @@ pub async fn create_bz2_from_bytes(
         let mut encoder = BzEncoder::new(output_file, Bzip2Compression::best());
 
         encoder.write_all(&data)?;
-        encoder.finish()?; // Ensure everything is flushed
+        encoder.finish()?;
 
         Ok::<_, Box<dyn std::error::Error + Send + Sync>>(())
     }).await?
 }
 
 pub async fn create_zst_from_bytes(
-    filename: &str,
     data: &[u8],
     output_path: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let filename = filename.to_string();
     let data = data.to_vec();
     let output_path = output_path.to_string();
 
-    // Run the blocking compression in a spawn_blocking to avoid blocking the async runtime
     task::spawn_blocking(move || -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut output_file = File::create(output_path)?;
         let mut encoder = zstd::stream::Encoder::new(&mut output_file, 0)?; // 0 = default compression level
         encoder.write_all(&data)?;
         encoder.finish()?;
         Ok(())
+    })
+    .await?
+}
+pub async fn create_lz4_from_bytes(
+    data: &[u8],
+    output_path: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let data = data.to_vec();
+    let output_path = output_path.to_string();
+
+    tokio::task::spawn_blocking(move || -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let file = File::create(&output_path)?;
+        let mut encoder = EncoderBuilder::new().build(file)?;
+        std::io::copy(&mut &data[..], &mut encoder)?;
+        let (_output, result) = encoder.finish();
+        result.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
     })
     .await?
 }
