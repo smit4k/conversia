@@ -6,9 +6,11 @@ edition = "2024"
 [dependencies]
 serenity = { version = "0.12", features = ["client", "gateway", "model", "standard_framework"] }
 poise = "0.6.1"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["fs", "macros", "rt-multi-thread"] }
 dotenv = "0.15"
 tempfile = "3.6"
 image = "0.24"
 zip = "4.0.0"
 id3 = "1.16.3"
+tar = "0.4"
+flate2 = "1.0"

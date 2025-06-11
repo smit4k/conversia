@@ -1,4 +1,4 @@
-use poise::{serenity_prelude as serenity};
+use poise::{serenity_prelude as serenity, CreateReply};
 use poise::serenity_prelude::{Attachment, CreateAttachment};
 use serenity::builder::CreateEmbed;
 use std::fs::File;
@@ -7,14 +7,27 @@ use zip::{ZipWriter, CompressionMethod};
 use crate::{Context, Error};
 use std::path::Path;
 use tokio::fs;
+use flate2::write::GzEncoder;
+use flate2::Compression;
+use tar::Builder;
 
+#[derive(Debug, poise::ChoiceParameter)]
+pub enum CompressionFormat {
+    #[name = "zip"]
+    Zip,
+    #[name = "tar.gz"]
+    TarGz,
+}
 
-/// Compress a file to ZIP
+/// Compress a file
 #[poise::command(slash_command)]
 pub async fn zip(
     ctx: Context<'_>,
     #[description = "File to compress"] file: Attachment,
+    #[description = "Compression format"] output_format: CompressionFormat,
 ) -> Result<(), Error> {
+
+    // Make sure user upload isn't too large
     const MAX_FILE_SIZE: u32 = 25 * 1024 * 1024; // 25MB
     if file.size > MAX_FILE_SIZE {
         let embed = CreateEmbed::new()
@@ -40,16 +53,34 @@ pub async fn zip(
         }
     };
 
-    // Generate output filename
+    // Generate output filenames
     let original_name = Path::new(&file.filename)
         .file_stem()
         .unwrap_or_default()
         .to_string_lossy();
-    let output_filename = format!("{}.zip", original_name);
-    let temp_output_path = format!("temp_compressed_{}", output_filename);
+
+    let (output_filename, temp_output_path) = match output_format {
+        CompressionFormat::Zip => (
+            format!("{}.zip", original_name),
+            format!("temp_compressed_{}.zip", original_name),
+        ),
+        CompressionFormat::TarGz => (
+            format!("{}.tar.gz", original_name),
+            format!("temp_compressed_{}.tar.gz", original_name),
+        ),
+    };
 
     // Compress the file
-    match create_zip_from_bytes(&file.filename, &file_data, &temp_output_path).await {
+    let result = match output_format {
+        CompressionFormat::Zip => {
+            create_zip_from_bytes(&file.filename, &file_data, &temp_output_path).await
+        }
+        CompressionFormat::TarGz => {
+            create_tar_from_bytes(&file.filename, &file_data, &temp_output_path).await
+        }
+    };
+
+    match result {
         Ok(()) => {
             // Read the compressed file
             match fs::read(&temp_output_path).await {
@@ -74,7 +105,14 @@ pub async fn zip(
                             ratio
                         ))
                         .color(0x44ff44)
-                        .footer(serenity::CreateEmbedFooter::new("Format: ZIP"));
+                        .footer(serenity::CreateEmbedFooter::new(format!(
+                            "Format: {}",
+                            match output_format {
+                                CompressionFormat::Zip => "zip",
+                                CompressionFormat::TarGz => "tar.gz",
+                            }
+                        )));
+
 
                     ctx.send(
                         poise::CreateReply::default()
@@ -102,8 +140,8 @@ pub async fn zip(
                 .color(0xff4444);
             
             ctx.send(poise::CreateReply::default().embed(embed)).await?;
-            
-            // Clean up temporary file
+
+            // Clean up temporary file if it exists
             let _ = fs::remove_file(&temp_output_path).await;
         }
     }
@@ -128,4 +166,25 @@ async fn create_zip_from_bytes(
     zip.finish()?;
     
     Ok(())
+}
+
+pub async fn create_tar_from_bytes(
+    filename: &str,
+    data: &[u8],
+    tar_gz_path: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let filename = filename.to_string();
+    let data = data.to_vec();
+    let tar_gz_path = tar_gz_path.to_string();
+
+    tokio::task::spawn_blocking(move || {
+        let tar_gz = File::create(&tar_gz_path)?;
+        let enc = GzEncoder::new(tar_gz, Compression::default());
+        let mut tar = Builder::new(enc);
+
+        tar.append_data(&mut tar::Header::new_gnu(), filename.as_str(), data.as_slice())?;
+        tar.finish()?;
+
+        Ok::<_, Box<dyn std::error::Error + Send + Sync>>(())
+    }).await?
 }
