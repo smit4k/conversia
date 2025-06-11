@@ -216,21 +216,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "block-modes"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e2211b0817f061502a8dd9f11a37e879e79763e3c698d2418cf824d8cb2f21e"
-
-[[package]]
-name = "block-padding"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8894febbff9f758034a5b8e12d87918f56dfc64a8e1fe757d65e29041538d93"
-dependencies = [
- "generic-array",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -414,9 +399,6 @@ version = "0.1.0"
 dependencies = [
  "aes",
  "age",
- "base64 0.21.7",
- "block-modes",
- "block-padding",
  "bzip2 0.4.4",
  "dotenv",
  "flate2",
@@ -424,7 +406,6 @@ dependencies = [
  "image",
  "lz4",
  "poise",
- "rand",
  "secrecy 0.10.3",
  "serenity",
  "tar",
