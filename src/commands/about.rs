@@ -9,7 +9,7 @@ use crate::{Context, Error};
 pub async fn about(ctx: Context<'_>) -> Result<(), Error> {
     let embed = CreateEmbed::default()
         .title("About Conversia")
-        .description("Conversia is a powerful multi purpose file utility bot")
+        .description("Conversia is a powerful, multi-purpose file utility bot written in Rust using the serenity and poise frameworks")
         .footer(
             serenity::builder::CreateEmbedFooter::new("Built in Rust")
                 .icon_url("https://cdn.discordapp.com/emojis/1382092921238458448.png")
