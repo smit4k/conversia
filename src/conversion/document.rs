@@ -57,7 +57,7 @@ pub async fn convert_document(
         Ok(data) => data,
         Err(e) => {
             let embed = CreateEmbed::default()
-            .title("❌ Conversia ran into an error")
+            .title("❌ Download failed")
             .description("Failed to download the attached file.")
             .color(0xff4444);
         
@@ -69,7 +69,7 @@ pub async fn convert_document(
 
     if let Err(e) = fs::write(&input_path, file_data).await {
         let embed = CreateEmbed::default()
-            .title("❌ Conversia ran into an error")
+            .title("❌ Failed to save file")
             .description("Failed to save the attached file to a temporary location.")
             .color(0xff4444);
         
@@ -90,7 +90,7 @@ pub async fn convert_document(
         Ok(f) => f,
         Err(e) => {
             let embed = CreateEmbed::default()
-                .title("❌ Conversia ran into an error")
+                .title("❌ Failed to create output file")
                 .description("Failed to create a temporary file for the output")
                 .color(0xff4444);
             
@@ -117,7 +117,7 @@ pub async fn convert_document(
                 Ok(data) => data,
                 Err(e) => {
                     let embed = CreateEmbed::default()
-                        .title("❌ Conversia ran into an error")
+                        .title("❌ Failed to read output file")
                         .description("Failed to read the converted file.")
                         .color(0xff4444);
 
