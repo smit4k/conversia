@@ -405,6 +405,7 @@ dependencies = [
  "id3",
  "image",
  "lz4",
+ "pandoc",
  "poise",
  "secrecy 0.10.3",
  "serenity",
@@ -1402,6 +1403,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "469fb0b9cefa57e3ef31275ee7cacb78f2fdca44e4765491884a2b119d4eb130"
 
 [[package]]
+name = "itertools"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1656,6 +1666,15 @@ name = "opaque-debug"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
+
+[[package]]
+name = "pandoc"
+version = "0.8.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "463d53d1a77a4291203dbf9d461365609e6857c95bd7d807098bffdc0a02a65c"
+dependencies = [
+ "itertools",
+]
 
 [[package]]
 name = "parking_lot"

@@ -1,9 +1,8 @@
-use std::process::Command;
-use std::path::Path;
 use tempfile::Builder;
 use tokio::fs;
 use poise::serenity_prelude::{Attachment, CreateAttachment};
 use serenity::builder::CreateEmbed;
+use pandoc;
 
 use crate::{Context, Error};
 
@@ -42,134 +41,113 @@ pub async fn convert_document(
 
     // Save the uploaded file with its original extension
     let original_extension = file.filename.rsplit('.').next().unwrap_or("tmp");
-    let input_temp_file = match Builder::new()
+    let input_temp_file = Builder::new()
         .suffix(&format!(".{}", original_extension))
-        .tempfile() {
-        Ok(f) => f,
-        Err(e) => {
-            let embed = CreateEmbed::default()
-                .title("❌ Conversia ran into an error")
-                .description("Failed to create a temporary file for the input.")
-                .color(0xff4444);
-        
-            let reply = poise::CreateReply::default().embed(embed);
-            ctx.send(reply).await?;
-            return Err(e.into());
-        }
-    };
+        .tempfile()
+        .map_err(|e| {
+            Error::from(format!("Failed to create temporary file: {}", e))
+        })?;
     let input_path = input_temp_file.path().to_path_buf();
 
-    let file_data = match file.download().await {
-        Ok(data) => data,
-        Err(e) => {
-            let embed = CreateEmbed::default()
-            .title("❌ Download failed")
-            .description("Failed to download the attached file.")
-            .color(0xff4444);
-        
-            let reply = poise::CreateReply::default().embed(embed);
-            ctx.send(reply).await?;
-            return Err(e.into());
-        }
-    };
+    // Download and save the file
+    let file_data = file.download().await.map_err(|e| {
+        Error::from(format!("Failed to download file: {}", e))
+    })?;
 
-    if let Err(e) = fs::write(&input_path, file_data).await {
-        let embed = CreateEmbed::default()
-            .title("❌ Failed to save file")
-            .description("Failed to save the attached file to a temporary location.")
-            .color(0xff4444);
-        
-        let reply = poise::CreateReply::default().embed(embed);
-        ctx.send(reply).await?;
-        return Err(e.into());
-    }
+    fs::write(&input_path, file_data).await.map_err(|e| {
+        Error::from(format!("Failed to write file: {}", e))
+    })?;
 
+    // Create output file
     let output_suffix = if pandoc_format == "markdown" {
-        format!(".{}", "md")
+        ".md".to_string()
     } else {
         format!(".{}", pandoc_format)
     };
 
-    let output_temp_file = match Builder::new()
+    let output_temp_file = Builder::new()
         .suffix(&output_suffix)
-        .tempfile() {
-        Ok(f) => f,
-        Err(e) => {
-            let embed = CreateEmbed::default()
-                .title("❌ Failed to create output file")
-                .description("Failed to create a temporary file for the output")
-                .color(0xff4444);
-            
-            let reply = poise::CreateReply::default().embed(embed);
-            ctx.send(reply).await?;
-            return Err(e.into());
-        }
-    };
+        .tempfile()
+        .map_err(|e| {
+            Error::from(format!("Failed to create output file: {}", e))
+        })?;
     let output_path = output_temp_file.path().to_path_buf();
 
-    // Run the Pandoc command
-    let output = Command::new("pandoc")
-        .arg(&input_path)
-        .arg("-o")
-        .arg(&output_path)
-        .arg(format!("--to={}", pandoc_format)) // Specify the output format
-        .arg(format!("--from={}", original_extension)) // Specify the input format
-        .output();
+    // Execute pandoc conversion in blocking task
+    let input_path_clone = input_path.clone();
+    let output_path_clone = output_path.clone();
+    let output_format_clone = output_format;
 
-    match output {
-        Ok(output) if output.status.success() => {
-            // Read the converted file into memory
-            let converted_file_data = match fs::read(&output_path).await {
-                Ok(data) => data,
-                Err(e) => {
-                    let embed = CreateEmbed::default()
-                        .title("❌ Failed to read output file")
-                        .description("Failed to read the converted file.")
-                        .color(0xff4444);
+    let conversion_result = tokio::task::spawn_blocking(move || {
+        let mut pandoc = pandoc::new();
+        pandoc.add_input(&input_path_clone);
+        pandoc.set_output(pandoc::OutputKind::File(output_path_clone));
+        
+        let pandoc_output_format = match output_format_clone {
+            OutputFormat::Markdown => pandoc::OutputFormat::Markdown,
+            OutputFormat::Html => pandoc::OutputFormat::Html,
+            OutputFormat::Pdf => pandoc::OutputFormat::Pdf,
+            OutputFormat::Docx => pandoc::OutputFormat::Docx,
+            OutputFormat::Odt => pandoc::OutputFormat::Odt,
+            OutputFormat::Epub => pandoc::OutputFormat::Epub,
+        };
+        
+        pandoc.set_output_format(pandoc_output_format, Vec::new());
+        pandoc.execute()
+    }).await;
 
-                    let reply = poise::CreateReply::default().embed(embed);
-                    ctx.send(reply).await?;
-                    return Err(e.into())
-                }
+    // Handle conversion result
+    match conversion_result {
+        Ok(Ok(_)) => {
+            // Conversion successful, read the output file
+            let converted_data = fs::read(&output_path).await.map_err(|e| {
+                Error::from(format!("Failed to read converted file: {}", e))
+            })?;
+
+            // Create output filename
+            let base_filename = file.filename.rsplit('.').nth(1).unwrap_or(&file.filename);
+            let output_filename = if pandoc_format == "markdown" {
+                format!("{}.md", base_filename)
+            } else {
+                format!("{}.{}", base_filename, pandoc_format)
             };
 
-            let base_name = Path::new(&file.filename)
-                .file_stem()
-                .unwrap_or_else(|| std::ffi::OsStr::new("converted"))
-                .to_string_lossy()
-                .to_string();
-
-            // Create an attachment from the converted file
-            let attachment = CreateAttachment::bytes(
-                converted_file_data,
-                format!("{}.{}", base_name, if pandoc_format == "markdown" { "md" } else { pandoc_format }),
-            );
-
+            // Create attachment and send response
+            let attachment = CreateAttachment::bytes(converted_data, &output_filename);
             let embed = CreateEmbed::default()
                 .title("✅ Conversion Complete")
-                .description(format!("{} → {}", original_extension, pandoc_format))
+                .description(&format!("{} → {}", 
+                                    original_extension, 
+                                    pandoc_format))
                 .color(0x44ff44);
 
             let reply = poise::CreateReply::default()
                 .embed(embed)
                 .attachment(attachment);
-
+            
             ctx.send(reply).await?;
         }
-        Ok(output) => {
-            let error_message = String::from_utf8_lossy(&output.stderr);
-
+        Ok(Err(e)) => {
+            // Pandoc conversion failed
             let embed = CreateEmbed::default()
                 .title("❌ Conversion failed")
-                .description(error_message)
+                .description(&format!("Pandoc conversion failed: {}", e))
                 .color(0xff4444);
-
+            
             let reply = poise::CreateReply::default().embed(embed);
             ctx.send(reply).await?;
+            return Err(Error::from(format!("Pandoc failed: {}", e)));
         }
-        Err(error) => {
-            ctx.say(format!("Failed to execute Pandoc: {}", error))
-                .await?;
+        Err(e) => {
+            // Task execution failed
+            let embed = CreateEmbed::default()
+                .title("❌ Task failed")
+                .description("Failed to execute conversion task.")
+                .color(0xff4444);
+            
+            let reply = poise::CreateReply::default().embed(embed);
+            ctx.send(reply).await?;
+            return Err(Error::from(format!("Task failed: {}", e)));
         }
     }
 
