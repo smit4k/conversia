@@ -43,14 +43,52 @@ pub async fn convert_image(
     };
 
     // Download the attachment
-    let bytes = file.download().await?;
+    let bytes = match file.download().await {
+        Ok(data) => data,
+        Err(e) => {
+            let embed = CreateEmbed::default()
+                .title("❌ Download failed")
+                .description("Failed to download the attached file")
+                .color(0xff4444);
+
+                let reply = poise::CreateReply::default().embed(embed);
+                ctx.send(reply).await?;
+                return Err(e.into());
+        }
+    };
 
     // Load image
-    let img = load_from_memory(&bytes)?;
+    let img = match load_from_memory(&bytes) {
+        Ok(i) => i,
+        _ => {
+            let embed = CreateEmbed::default()
+                .title("❌ Could not read image")
+                .description("The uploaded file isn't a valid image format.")
+                .field("Supported formats", "jpg, png, webp, gif, bmp, tiff", false)
+                .color(0xff4444);
+
+            let reply = poise::CreateReply::default().embed(embed);
+            ctx.send(reply).await?;
+            return Ok(());
+        }
+    };
 
     // Convert and save to temp file
     let mut buf = Cursor::new(Vec::new());
-    img.write_to(&mut buf, format)?;
+
+    // Write image to chosen output format
+    if let Err(e) = img.write_to(&mut buf, format) {
+        let embed = CreateEmbed::default()
+            .title("❌ Conversion Failed")
+            .description("Could not convert the image to the selected format.")
+            .color(0xff4444);
+
+        let reply = poise::CreateReply::default().embed(embed);
+        ctx.send(reply).await?;
+
+        return Err(e.into());
+    }
+
     let output_bytes = buf.into_inner();
 
     // Upload the file back to Discord
