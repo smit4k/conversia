@@ -1,6 +1,6 @@
 /// Format file size in bytes to the most readable format
 pub fn format_file_size(bytes: u64) -> String {
-    const UNITS: &[&str] = &["bytes", "KB", "MB", "GB", "TB"];
+    const UNITS: &[&str] = &["bytes", "KB", "MB"];
     const THRESHOLD: f64 = 1024.0;
     
     if bytes == 0 {
