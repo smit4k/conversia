@@ -15,9 +15,9 @@ pub async fn about(ctx: Context<'_>) -> Result<(), Error> {
                 .icon_url("https://cdn.discordapp.com/emojis/1382092921238458448.png")
         );
         
-    let mut button = CreateButton::new_link("https://github.com/smit4k/conversia");
-    button = button.label("Source Code");
-    button = button.emoji(serenity::model::prelude::ReactionType::Custom {
+    let mut github_button = CreateButton::new_link("https://github.com/smit4k/conversia");
+    github_button = github_button.label("Source Code");
+    github_button = github_button.emoji(serenity::model::prelude::ReactionType::Custom {
         animated: false,
         id: serenity::model::prelude::EmojiId::new(1382099046654677073),
         name: Some("github_white".to_string()),
@@ -26,7 +26,7 @@ pub async fn about(ctx: Context<'_>) -> Result<(), Error> {
     let mut invite_button = CreateButton::new_link("https://discord.com/oauth2/authorize?client_id=1373693356928012328&permissions=51200&integration_type=0&scope=bot+applications.commands");
     invite_button = invite_button.label("Add to server");
 
-    let action_row = CreateActionRow::Buttons(vec![invite_button, button]);
+    let action_row = CreateActionRow::Buttons(vec![invite_button, github_button]);
 
     let reply = poise::CreateReply::default()
         .embed(embed)
