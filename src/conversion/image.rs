@@ -26,7 +26,7 @@ pub enum OutputFormat {
 pub async fn convert_image(
     ctx: Context<'_>,
     #[description = "Image to convert"] file: Attachment,
-    #[description = "Image Format to convert to"] output_format: OutputFormat,
+    #[description = "Image format to convert to"] output_format: OutputFormat,
 ) -> Result<(), Error> {
     ctx.defer().await?;
 
