@@ -110,8 +110,8 @@ pub async fn convert_image(
         .color(0x27ae60);
 
     let reply = poise::CreateReply::default()
-        .embed(embed).
-        attachment(attachment);
+        .embed(embed)
+        .attachment(attachment);
         
     ctx.send(reply).await?;
 
