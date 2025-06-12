@@ -19,6 +19,8 @@ pub enum OutputFormat {
     Docx,
     #[name = "OpenDocument Text (odt)"]
     Odt,
+    #[name = "EPUB"]
+    Epub,
 }
 
 /// Convert a document
@@ -35,6 +37,7 @@ pub async fn convert_document(
         OutputFormat::Pdf => "pdf",
         OutputFormat::Docx => "docx",
         OutputFormat::Odt => "odt",
+        OutputFormat::Epub => "epub",
     };
 
     // Save the uploaded file with its original extension
