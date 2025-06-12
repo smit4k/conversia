@@ -38,8 +38,10 @@ pub async fn compress(
     #[description = "Compression format"] output_format: CompressionFormat,
 ) -> Result<(), Error> {
 
+    ctx.defer().await?;
+    
     // Make sure user upload isn't too large
-    const MAX_FILE_SIZE: u32 = 25 * 1024 * 1024; // 25MB
+    const MAX_FILE_SIZE: u32 = 10 * 1024 * 1024; // 10MB
     if file.size > MAX_FILE_SIZE {
         let embed = CreateEmbed::new()
             .title("❌ File Too Large")
