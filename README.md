@@ -48,6 +48,7 @@ Conversia supports the following commands:
 - `/decrypt`: Decrypt encrypted files.
 - `/audio_meta`: Extract metadata from MP3 files.
 - `/about`: Learn more about Conversia.
+- `/help`: Shows all commands of Conversia
 
 ## Contributing
 
