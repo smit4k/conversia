@@ -27,8 +27,8 @@ pub enum OutputFormat {
 #[poise::command(slash_command)]
 pub async fn convert_document(
     ctx: Context<'_>,
-    #[description = "File to convert"] file: Attachment,
-    #[description = "Format to convert to (e.g., pdf, html, markdown, docx)"] output_format: OutputFormat,
+    #[description = "Document to convert"] file: Attachment,
+    #[description = "Document format to convert to"] output_format: OutputFormat,
 ) -> Result<(), Error> {
     // Map user-friendly format names to pandoc format names
     let pandoc_format = match output_format {
