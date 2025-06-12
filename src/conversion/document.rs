@@ -17,6 +17,8 @@ pub enum OutputFormat {
     Pdf,
     #[name = "Word Document (docx)"]
     Docx,
+    #[name = "OpenDocument Text (odt)"]
+    Odt,
 }
 
 /// Convert a document
@@ -32,6 +34,7 @@ pub async fn convert_document(
         OutputFormat::Html => "html",
         OutputFormat::Pdf => "pdf",
         OutputFormat::Docx => "docx",
+        OutputFormat::Odt => "odt",
     };
 
     // Save the uploaded file with its original extension
