@@ -39,18 +39,6 @@ pub async fn compress(
 ) -> Result<(), Error> {
 
     ctx.defer().await?;
-    
-    // Make sure user upload isn't too large
-    const MAX_FILE_SIZE: u32 = 10 * 1024 * 1024; // 10MB
-    if file.size > MAX_FILE_SIZE {
-        let embed = CreateEmbed::new()
-            .title("❌ File Too Large")
-            .description("File must be smaller than 25MB")
-            .color(0xff4444);
-        
-        ctx.send(poise::CreateReply::default().embed(embed)).await?;
-        return Ok(());
-    }
 
     // Download the file
     let file_data = match file.download().await {
