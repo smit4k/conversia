@@ -60,7 +60,7 @@ pub async fn decrypt(
         .field("Decryption Method", "Age (ChaCha20-Poly1305)", true)
         .field("Encrypted Size", format_file_size(file.size.into()), true)
         .field("Decrypted Size", format_file_size(decrypted_data.len().try_into().unwrap()), true)
-        .color(0x44ff44);
+        .color(0x27ae60);
     
     // Send response with decrypted file
     ctx.send(

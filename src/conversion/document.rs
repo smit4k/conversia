@@ -119,7 +119,7 @@ pub async fn convert_document(
                 .description(&format!("{} → {}", 
                                     original_extension, 
                                     pandoc_format))
-                .color(0x44ff44);
+                .color(0x27ae60);
 
             let reply = poise::CreateReply::default()
                 .embed(embed)

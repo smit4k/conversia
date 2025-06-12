@@ -126,7 +126,7 @@ pub async fn compress(
                             format_file_size(compressed_size as u64),
                             ratio
                         ))
-                        .color(0x44ff44)
+                        .color(0x27ae60)
                         .footer(serenity::CreateEmbedFooter::new(format!(
                             "Format: {}",
                             match output_format {

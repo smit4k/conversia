@@ -79,7 +79,7 @@ pub async fn convert_image(
     // Write image to chosen output format
     if let Err(e) = img.write_to(&mut buf, format) {
         let embed = CreateEmbed::default()
-            .title("❌ Conversion Failed")
+            .title("❌ Conversion failed")
             .description("Could not convert the image to the selected format.")
             .color(0xff4444);
 
@@ -107,7 +107,7 @@ pub async fn convert_image(
     let embed = CreateEmbed::default()
         .title("✅ Conversion Complete")
         .description(format!("{} → {}", original_extension, ext))
-        .color(0x44ff44);
+        .color(0x27ae60);
 
     let reply = poise::CreateReply::default()
         .embed(embed).

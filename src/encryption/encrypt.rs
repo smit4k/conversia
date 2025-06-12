@@ -61,7 +61,7 @@ pub async fn encrypt(
         .field("Encryption Method", "Age (ChaCha20-Poly1305)", true)
         .field("Original Size", format_file_size(file.size.into()), true)
         .field("Encrypted Size", format_file_size(encrypted_data.len().try_into().unwrap()), true)
-        .color(0x44ff44);
+        .color(0x27ae60);
     
     // Send response with encrypted file
     ctx.send(

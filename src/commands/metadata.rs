@@ -64,7 +64,7 @@ pub async fn audio_meta(
         .field("Album", album, false)
         .field("Year", year, false)
         .field("Genre", genre, false)
-        .color(0x44ff44);
+        .color(0x27ae60);
         
     let reply = poise::CreateReply::default().embed(embed);
     ctx.send(reply).await?;
