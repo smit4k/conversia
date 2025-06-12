@@ -59,8 +59,7 @@ pub async fn audio_meta(
     let genre = tag.genre().unwrap_or("Unknown");
 
     let embed = CreateEmbed::default()
-        .title("🎵 Audio Metadata")
-        .field("Title", title, false)
+        .title(title)
         .field("Artist", artist, false)
         .field("Album", album, false)
         .field("Year", year, false)
