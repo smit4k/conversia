@@ -1,5 +1,5 @@
 use poise::{serenity_prelude as serenity};
-use ::serenity::all::{CreateActionRow, CreateButton};
+use ::serenity::{all::{CreateActionRow, CreateButton}};
 use serenity::builder::CreateEmbed;
 
 use crate::{Context, Error};
@@ -23,7 +23,10 @@ pub async fn about(ctx: Context<'_>) -> Result<(), Error> {
         name: Some("github_white".to_string()),
     });
 
-    let action_row = CreateActionRow::Buttons(vec![button]);
+    let mut invite_button = CreateButton::new_link("https://discord.com/oauth2/authorize?client_id=1373693356928012328&permissions=51200&integration_type=0&scope=bot+applications.commands");
+    invite_button = invite_button.label("Add to server");
+
+    let action_row = CreateActionRow::Buttons(vec![invite_button, button]);
 
     let reply = poise::CreateReply::default()
         .embed(embed)
