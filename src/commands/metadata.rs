@@ -15,7 +15,7 @@ pub async fn audio_meta(
     // Ensure it's an mp3 file
     if !file.filename.ends_with(".mp3") {
         let embed = CreateEmbed::default()
-                .title("❌ Conversia ran into an error")
+                .title("❌ Invalid file format")
                 .description("Please upload a valid .mp3 file")
                 .color(0xff4444);
 
@@ -40,7 +40,7 @@ pub async fn audio_meta(
         Ok(tag) => tag,
         Err(err) => {
             let embed = CreateEmbed::default()
-                .title("❌ Conversia ran into an error")
+                .title("❌ Failed to read metadata")
                 .description(format!("Failed to read ID3 metadata: {}", err))
                 .color(0xff4444);
 
