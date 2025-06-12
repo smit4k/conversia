@@ -2,6 +2,7 @@ use poise::{serenity_prelude as serenity};
 use ::serenity::{all::{CreateActionRow, CreateButton}};
 use crate::{Context, Error};
 
+/// Shows all commands available
 #[poise::command(slash_command, prefix_command)]
 pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
     let embed = serenity::builder::CreateEmbed::default()
