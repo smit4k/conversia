@@ -10,7 +10,7 @@ pub async fn about(ctx: Context<'_>) -> Result<(), Error> {
     let embed = CreateEmbed::default()
         .title("About Conversia")
         .description("Conversia is a powerful, multi-purpose file utility bot written in Rust using the serenity and poise frameworks")
-        .field("Legal", "[Terms of Service](https://github.com/smit4k/conversia/blob/main/TERMS_OF_SERVICE.md)\n[Privacy Policy](https://github.com/smit4k/conversia/blob/main/PRIVACY_POLICY.md)", false);
+        .field("Legal", "[Terms of Service](https://github.com/smit4k/conversia/blob/96ff6ecd80e7220269e19468cca3141eb4fef25b/TERMS_OF_SERVICE.md)\n[Privacy Policy](https://github.com/smit4k/conversia/blob/96ff6ecd80e7220269e19468cca3141eb4fef25b/PRIVACY_POLICY.md)", false);
         
     let mut github_button = CreateButton::new_link("https://github.com/smit4k/conversia");
     github_button = github_button.label("Source Code");
