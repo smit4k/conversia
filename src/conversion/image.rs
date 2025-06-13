@@ -47,7 +47,7 @@ pub async fn convert_image(
         Ok(data) => data,
         Err(e) => {
             let embed = CreateEmbed::default()
-                .title("❌ Download failed")
+                .title("❌ Download Failed")
                 .description("Failed to download the attached file")
                 .color(0xff4444);
 
@@ -62,7 +62,7 @@ pub async fn convert_image(
         Ok(i) => i,
         _ => {
             let embed = CreateEmbed::default()
-                .title("❌ Could not read image")
+                .title("❌ Could Not Read Image")
                 .description("The uploaded file isn't a valid image format.")
                 .field("Supported formats", "jpg, png, webp, gif, bmp, tiff", false)
                 .color(0xff4444);
@@ -79,7 +79,7 @@ pub async fn convert_image(
     // Write image to chosen output format
     if let Err(e) = img.write_to(&mut buf, format) {
         let embed = CreateEmbed::default()
-            .title("❌ Conversion failed")
+            .title("❌ Conversion Failed")
             .description("Could not convert the image to the selected format.")
             .color(0xff4444);
 

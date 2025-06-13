@@ -45,7 +45,7 @@ pub async fn decompress(
         Ok(data) => data,
         Err(e) => {
             let embed = CreateEmbed::new()
-                .title("❌ Download failed")
+                .title("❌ Download Failed")
                 .description(format!("Failed to download file: {}", e))
                 .color(0xff4444);
             
@@ -84,7 +84,7 @@ pub async fn decompress(
         }
         DecompressionFormat::Auto => {
             let embed = CreateEmbed::new()
-                .title("❌ Format detection failed")
+                .title("❌ Format Detection Failed")
                 .description("Could not detect compression format from filename")
                 .color(0xff4444);
             
@@ -145,7 +145,7 @@ pub async fn decompress(
                 }
                 Err(e) => {
                     let embed = CreateEmbed::new()
-                        .title("❌ File read error")
+                        .title("❌ File Read Error")
                         .description(format!("Failed to read decompressed file: {}", e))
                         .color(0xff4444);
                     
@@ -158,7 +158,7 @@ pub async fn decompress(
         }
         Err(e) => {
             let embed = CreateEmbed::new()
-                .title("❌ Decompression failed")
+                .title("❌ Decompression Failed")
                 .description(format!("Failed to decompress file: {}", e))
                 .color(0xff4444);
             

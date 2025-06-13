@@ -130,7 +130,7 @@ pub async fn convert_document(
         Ok(Err(e)) => {
             // Pandoc conversion failed
             let embed = CreateEmbed::default()
-                .title("❌ Conversion failed")
+                .title("❌ Conversion Failed")
                 .description(&format!("Pandoc conversion failed: {}", e))
                 .color(0xff4444);
             
@@ -141,7 +141,7 @@ pub async fn convert_document(
         Err(e) => {
             // Task execution failed
             let embed = CreateEmbed::default()
-                .title("❌ Task failed")
+                .title("❌ Task Failed")
                 .description("Failed to execute conversion task.")
                 .color(0xff4444);
             
