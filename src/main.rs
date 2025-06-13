@@ -40,6 +40,7 @@ async fn main() {
             commands: vec![commands::ping::ping(), 
             commands::about::about(), 
             commands::help::help(),
+            commands::hash::hash(),
             compression::compress::compress(),
             compression::decompress::decompress(), 
             commands::metadata::audio_meta(),
