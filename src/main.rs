@@ -8,6 +8,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 
 mod commands;
 mod conversion;
+mod compression;
 mod encryption;
 mod utils;
 
@@ -39,8 +40,8 @@ async fn main() {
             commands: vec![commands::ping::ping(), 
             commands::about::about(), 
             commands::help::help(),
-            commands::compress::compress(),
-            commands::decompress::decompress(), 
+            compression::compress::compress(),
+            compression::decompress::decompress(), 
             commands::metadata::audio_meta(),
             conversion::document::convert_document(), 
             conversion::image::convert_image(),
