@@ -57,3 +57,8 @@ Contributions are welcome! Feel free to open issues or submit pull requests to i
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
+
+## Legal
+
+[Terms of Service](TERMS.md) <br>
+[Privacy Policy](PRIVACY.md)
