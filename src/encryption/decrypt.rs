@@ -4,7 +4,7 @@ use tokio::fs;
 use poise::serenity_prelude::{Attachment, CreateAttachment};
 use serenity::builder::CreateEmbed;
 use secrecy::SecretString;
-use crate::{utils::format_file_size, Context, Error};
+use crate::{Context, Error};
 
 /// Decrypt a file using age (ChaCha20-Poly1305)
 #[poise::command(slash_command, ephemeral)]
