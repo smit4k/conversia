@@ -28,8 +28,8 @@ pub async fn hash(
 ) -> Result<(), Error> {
     ctx.defer().await?;
 
-    // Check file size limit (25MB)
-    if file.size > 25 * 1024 * 1024 {
+    // Check file size limit (10MB)
+    if file.size > 10 * 1024 * 1024 {
         let embed = CreateEmbed::new()
             .title("❌ File Too Large")
             .description("File size must be under 25MB for hashing")
