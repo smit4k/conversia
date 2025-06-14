@@ -16,7 +16,6 @@ Conversia only collects minimal data required to function properly within Discor
 
 ### What We **Don't** Collect
 
-- No direct messages are read or stored
 - No message history is accessed or retained
 - No persistent tracking of user activity is performed
 
