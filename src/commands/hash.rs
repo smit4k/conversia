@@ -28,17 +28,6 @@ pub async fn hash(
 ) -> Result<(), Error> {
     ctx.defer().await?;
 
-    // Check file size limit (10MB)
-    if file.size > 10 * 1024 * 1024 {
-        let embed = CreateEmbed::new()
-            .title("❌ File Too Large")
-            .description("File size must be under 25MB for hashing")
-            .color(0xff4444);
-
-        ctx.send(poise::CreateReply::default().embed(embed)).await?;
-        return Ok(());
-    }
-
     // Download the file
     let file_data = match file.download().await {
         Ok(data) => data,
