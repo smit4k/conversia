@@ -83,12 +83,12 @@ pub async fn hash(
     let embed = CreateEmbed::new()
         .title("🔐 File Hash Generated")
         .description(format!(
-            "**File:** `{}`\n**Size:** {}\n**Algorithm:** {}\n\n**Hash:**\n```\n{}\n```",
+            "**File:** `{}`\n**Size:** {}\n**Algorithm:** {}",
             file.filename,
             format_file_size(file.size.into()),
             algorithm_name,
-            hash_result
         ))
+        .field("Hash", format!("```{}```", &hash_result), false)
         .color(0x27ae60);
 
     ctx.send(poise::CreateReply::default().embed(embed)).await?;
