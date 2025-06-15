@@ -6,8 +6,9 @@ Conversia is a powerful, multi-purpose file utility bot written in Rust using th
 
 - **Document Conversion**: Convert documents to various formats such as PDF, Markdown, HTML, and Word.
 - **Image Conversion**: Transform images between different formats.
-- **File Compression**: Compress files into formats like ZIP, TAR.GZ, BZ2, ZST, and LZ4.
+- **File Compression/Decompression**: Compress and decompress files with formats like ZIP, TAR.GZ, BZ2, ZST, and LZ4.
 - **File Encryption/Decryption**: Securely encrypt and decrypt files using the Age encryption standard.
+- **Hash Generation**: Generate a has for a file with algorithms SHA-256, SHA-1, MD5, BLAKE3
 - **Audio Metadata Extraction**: Extract metadata from MP3 files, including title, artist, album, year, and genre.
 
 ## Installation
@@ -44,8 +45,10 @@ Conversia supports the following commands:
 - `/convert_document`: Convert documents to various formats.
 - `/convert_image`: Convert images between formats.
 - `/compress`: Compress files into different formats.
+- `/decompress`: Decompress a file
 - `/encrypt`: Encrypt files securely.
 - `/decrypt`: Decrypt encrypted files.
+- `/hash`: Generate a hash for a file
 - `/audio_meta`: Extract metadata from MP3 files.
 - `/about`: Learn more about Conversia.
 - `/help`: Shows all commands of Conversia
@@ -60,5 +63,5 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## Legal
 
-[Terms of Service](TERMS.md) <br>
-[Privacy Policy](PRIVACY.md)
+[Terms of Service](TERMS_OF_SERVICE.md) <br>
+[Privacy Policy](PRIVACY_POLICY.md)
