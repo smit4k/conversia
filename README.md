@@ -1,3 +1,5 @@
+![ConversiaGithubBanner](ConversiaGithubBanner.png)
+
 # 📁 Conversia
 
 Conversia is a powerful, multi-purpose file utility bot written in Rust using the [serenity](https://github.com/serenity-rs/serenity) and [poise](https://github.com/serenity-rs/poise) frameworks. It provides a wide range of file-related operations, making it an essential tool for managing and processing files directly within Discord.
