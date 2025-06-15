@@ -11,6 +11,9 @@ Conversia is a powerful, multi-purpose file utility bot written in Rust using th
 - **Hash Generation**: Generate a has for a file with algorithms SHA-256, SHA-1, MD5, BLAKE3
 - **Audio Metadata Extraction**: Extract metadata from MP3 and FLAC files, including title, artist, album, year, and genre.
 
+## Add to your Server
+Add Conversia to your server [here](https://discord.com/oauth2/authorize?client_id=1373693356928012328&permissions=274877958144&integration_type=0&scope=applications.commands+bot)
+
 ## Installation
 
 1. Clone the repository:
