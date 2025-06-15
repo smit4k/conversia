@@ -58,7 +58,7 @@ impl HelpPage {
                     .description("Additional utilities and information")
                     .color(0x9B59B6)  // Purple
                     .field("/hash", "Generate a hash for a file.\n• Supports: SHA-256, SHA-1, MD5, BLAKE3", false)
-                    .field("/audio_meta", "Extract metadata from MP3 files.\n• Shows: title, artist, album, year, genre\n• Works with most MP3 files", false)
+                    .field("/audio_meta", "Extract metadata from MP3 and FLAC files.\n• Shows: title, artist, album, year, genre\n• Works with most MP3 and FLAC files", false)
                     .field("/about", "Learn more about the Conversia bot.\n• Information about the bot n\n• Legal information", false)
                     .field("/ping", "Check the bot's latency.\n• Useful for debugging connection issues", false)
                     .field("/help", "Shows this help system.\n• Navigate between categories\n• Find detailed command information", false)
