@@ -9,7 +9,7 @@ Conversia is a powerful, multi-purpose file utility bot written in Rust using th
 - **File Compression/Decompression**: Compress and decompress files with formats like ZIP, TAR.GZ, BZ2, ZST, and LZ4.
 - **File Encryption/Decryption**: Securely encrypt and decrypt files using the Age encryption standard.
 - **Hash Generation**: Generate a has for a file with algorithms SHA-256, SHA-1, MD5, BLAKE3
-- **Audio Metadata Extraction**: Extract metadata from MP3 files, including title, artist, album, year, and genre.
+- **Audio Metadata Extraction**: Extract metadata from MP3 and FLAC files, including title, artist, album, year, and genre.
 
 ## Installation
 
@@ -49,7 +49,7 @@ Conversia supports the following commands:
 - `/encrypt`: Encrypt files securely.
 - `/decrypt`: Decrypt encrypted files.
 - `/hash`: Generate a hash for a file
-- `/audio_meta`: Extract metadata from MP3 files.
+- `/audio_meta`: Extract metadata from MP3 and FLAC files.
 - `/about`: Learn more about Conversia.
 - `/help`: Shows all commands of Conversia
 
