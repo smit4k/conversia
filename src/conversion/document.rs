@@ -16,6 +16,8 @@ pub enum OutputFormat {
     Pdf,
     #[name = "Word Document (docx)"]
     Docx,
+    #[name = "Rich Text Format (rtf)"]
+    Rtf,
     #[name = "OpenDocument Text (odt)"]
     Odt,
     #[name = "EPUB"]
@@ -35,6 +37,7 @@ pub async fn convert_document(
         OutputFormat::Html => "html",
         OutputFormat::Pdf => "pdf",
         OutputFormat::Docx => "docx",
+        OutputFormat::Rtf => "rtf",
         OutputFormat::Odt => "odt",
         OutputFormat::Epub => "epub",
     };
@@ -88,6 +91,7 @@ pub async fn convert_document(
             OutputFormat::Html => pandoc::OutputFormat::Html,
             OutputFormat::Pdf => pandoc::OutputFormat::Pdf,
             OutputFormat::Docx => pandoc::OutputFormat::Docx,
+            OutputFormat::Rtf => pandoc::OutputFormat::Rtf,
             OutputFormat::Odt => pandoc::OutputFormat::Odt,
             OutputFormat::Epub => pandoc::OutputFormat::Epub,
         };
