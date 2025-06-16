@@ -6,7 +6,7 @@ Conversia is a powerful, multi-purpose file utility bot written in Rust using th
 
 ## Features
 
-- **Document Conversion**: Convert documents to various formats such as PDF, Markdown, HTML, and Word.
+- **Document Conversion:** Easily convert documents into multiple formats including PDF, Markdown, HTML, Word, and more!
 - **Image Conversion**: Transform images between different formats.
 - **File Compression/Decompression**: Compress and decompress files with formats like ZIP, TAR.GZ, BZ2, ZST, and LZ4.
 - **File Encryption/Decryption**: Securely encrypt and decrypt files using the Age encryption standard.
@@ -14,6 +14,7 @@ Conversia is a powerful, multi-purpose file utility bot written in Rust using th
 - **Audio Metadata Extraction**: Extract metadata from MP3 and FLAC files, including title, artist, album, year, and genre.
 
 ## Add to your Server
+
 Add Conversia to your server [here](https://discord.com/oauth2/authorize?client_id=1373693356928012328&permissions=274877958144&integration_type=0&scope=applications.commands+bot)
 
 ## Installation
