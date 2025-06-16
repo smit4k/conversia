@@ -14,6 +14,8 @@ pub enum OutputFormat {
     Html,
     #[name = "PDF"]
     Pdf,
+    #[name = "LaTeX"]
+    Latex,
     #[name = "Word Document (docx)"]
     Docx,
     #[name = "Rich Text Format (rtf)"]
@@ -36,6 +38,7 @@ pub async fn convert_document(
         OutputFormat::Markdown => "markdown",
         OutputFormat::Html => "html",
         OutputFormat::Pdf => "pdf",
+        OutputFormat::Latex => "tex",
         OutputFormat::Docx => "docx",
         OutputFormat::Rtf => "rtf",
         OutputFormat::Odt => "odt",
@@ -90,6 +93,7 @@ pub async fn convert_document(
             OutputFormat::Markdown => pandoc::OutputFormat::Markdown,
             OutputFormat::Html => pandoc::OutputFormat::Html,
             OutputFormat::Pdf => pandoc::OutputFormat::Pdf,
+            OutputFormat::Latex => pandoc::OutputFormat::Latex,
             OutputFormat::Docx => pandoc::OutputFormat::Docx,
             OutputFormat::Rtf => pandoc::OutputFormat::Rtf,
             OutputFormat::Odt => pandoc::OutputFormat::Odt,
