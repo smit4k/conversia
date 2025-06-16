@@ -22,7 +22,7 @@ Conversia is an open-source Discord bot developed to perform file conversions, m
 - Conversia does **not** collect or store any personal data beyond what is needed for operation within Discord (e.g., user IDs for temporary usage context).
 - Files sent to Conversia are **processed in memory** and are not retained after conversion.
 
-See our [Privacy Policy](./PRIVACY.md) for more details.
+See our [Privacy Policy](./PRIVACY_POLICY.md) for more details.
 
 ## 4. Uptime and Support
 
