@@ -30,7 +30,7 @@ impl HelpPage {
                     .title("Conversia Help - Conversion")
                     .description("Convert your files between different formats")
                     .color(0x00D166)  // Green
-                    .field("/convert_document", "Convert documents to formats like PDF, Markdown, HTML, and Word.\n• Supports: DOCX, PDF, MD, HTML, TXT", false)
+                    .field("/convert_document", "Convert documents to formats like PDF, Markdown, HTML, and Word.\n• Supports: MD, HTML, PDF, TEX, DOCX, RTF, ODT, EPUB", false)
                     .field("/convert_image", "Convert images between formats.\n• Supports: JPG, PNG, WEBP, GIF, BMP, TIFF", false)
                     .footer(serenity::builder::CreateEmbedFooter::new("Choose the format that best fits your needs"))
             }
