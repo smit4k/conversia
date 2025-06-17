@@ -41,6 +41,7 @@ async fn main() {
             commands::about::about(), 
             commands::help::help(),
             commands::hash::hash(),
+            commands::resize::resize_image(),
             compression::compress::compress(),
             compression::decompress::decompress(), 
             commands::metadata::audio_meta(),
