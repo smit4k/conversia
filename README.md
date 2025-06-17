@@ -19,6 +19,10 @@ Add Conversia to your server [here](https://discord.com/oauth2/authorize?client_
 
 ## Installation
 
+> [!IMPORTANT] 
+> You will need [pandoc](https://pandoc.org/installing.html) and a LaTeX engine (ex. pdfTeX) installed on your system for converting files
+
+
 1. Clone the repository:
 
    ```bash
