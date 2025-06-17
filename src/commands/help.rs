@@ -57,6 +57,7 @@ impl HelpPage {
                     .title("Conversia Help - Other Tools")
                     .description("Additional utilities and information")
                     .color(0x9B59B6)  // Purple
+                    .field("/resize_image", "Resize an image using the high-quality Lanczos3 algorithm", false)
                     .field("/hash", "Generate a hash for a file.\n• Supports: SHA-256, SHA-1, MD5, BLAKE3", false)
                     .field("/audio_meta", "Extract metadata from MP3 and FLAC files.\n• Shows: title, artist, album, year, genre\n• Works with most MP3 and FLAC files", false)
                     .field("/about", "Learn more about the Conversia bot.\n• Information about the bot n\n• Legal information", false)
