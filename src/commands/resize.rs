@@ -6,13 +6,13 @@ use fast_image_resize::Resizer;
 use fast_image_resize::images::Image;
 use crate::{Context, Error};
 
-/// Resize an image using the high-quality Lanczos3 algorithm
+/// Resize an image
 #[poise::command(slash_command)]
 pub async fn resize_image(
     ctx: Context<'_>,
     #[description = "Image to resize"] attachment: Attachment,
-    #[description = "New height in pixels"] height: u32,
     #[description = "New width in pixels"] width: u32,
+    #[description = "New height in pixels"] height: u32,
 ) -> Result<(), Error> {
     ctx.defer().await?;
 
@@ -55,9 +55,8 @@ pub async fn resize_image(
         }
     };
 
-    
-    let original_height = src_image.height();
     let original_width = src_image.width();
+    let original_height = src_image.height();
 
     // Convert DynamicImage to RGBA8 for fast_image_resize
     let rgba_image = src_image.to_rgba8();
