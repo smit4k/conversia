@@ -1,4 +1,4 @@
-![ConversiaGithubBanner](ConversiaGithubBanner.png)
+![ConversiaGithubBanner](assets/ConversiaGithubBanner.png)
 
 # 📁 Conversia
 
