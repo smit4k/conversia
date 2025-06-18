@@ -7,7 +7,7 @@ use fast_image_resize::images::Image;
 use crate::{Context, Error};
 
 /// Resize an image
-#[poise::command(slash_command, rename = "resize image")]
+#[poise::command(slash_command)]
 pub async fn resize_image(
     ctx: Context<'_>,
     #[description = "Image to resize"] attachment: Attachment,
