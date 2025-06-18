@@ -1,69 +1,155 @@
 use std::io::Cursor;
 use serenity::all::{Attachment, CreateEmbed};
-use poise::serenity_prelude::{CreateAttachment};
-
+use poise::serenity_prelude::CreateAttachment;
+use image::{DynamicImage, ImageOutputFormat};
 use crate::{Context, Error};
 
-#[derive(Debug, poise::ChoiceParameter)]
+#[derive(Debug, Clone, Copy, poise::ChoiceParameter)]
 pub enum OutputFormat {
-    #[name = "jpg"]
+    #[name = "JPEG"]
     Jpg,
-    #[name = "png"]
+    #[name = "PNG"]
     Png,
-    #[name = "webp"]
+    #[name = "WebP"]
     Webp,
-    #[name = "gif"]
+    #[name = "GIF"]
     Gif,
-    #[name = "bmp"]
+    #[name = "BMP"]
     Bmp,
-    #[name = "tiff"]
+    #[name = "TIFF"]
     Tiff,
 }
 
+impl OutputFormat {
+    /// Get the file extension for this format
+    const fn extension(self) -> &'static str {
+        match self {
+            Self::Jpg => "jpg",
+            Self::Png => "png",
+            Self::Webp => "webp",
+            Self::Gif => "gif",
+            Self::Bmp => "bmp",
+            Self::Tiff => "tiff",
+        }
+    }
+
+    /// Convert to image output format with optimized settings
+    const fn to_image_format(self) -> ImageOutputFormat {
+        match self {
+            Self::Jpg => ImageOutputFormat::Jpeg(85),
+            Self::Png => ImageOutputFormat::Png,
+            Self::Webp => ImageOutputFormat::WebP,
+            Self::Gif => ImageOutputFormat::Gif,
+            Self::Bmp => ImageOutputFormat::Bmp,
+            Self::Tiff => ImageOutputFormat::Tiff,
+        }
+    }
+}
+
+/// Extract file extension from filename
+fn get_extension(filename: &str) -> &str {
+    filename.rsplit('.').next().unwrap_or("tmp")
+}
+
+/// Generate output filename from input filename and format
+fn generate_output_filename(input_filename: &str, format: OutputFormat) -> String {
+    let base = input_filename
+        .rsplit_once('.')
+        .map_or(input_filename, |(base, _)| base);
+    format!("{}.{}", base, format.extension())
+}
+
+/// Optimize image based on output format
+fn optimize_image_for_format(img: DynamicImage, format: OutputFormat) -> DynamicImage {
+    match format {
+        // Convert to RGB for formats that don't support transparency
+        OutputFormat::Jpg | OutputFormat::Bmp => {
+            if img.color().has_alpha() {
+                DynamicImage::ImageRgb8(img.to_rgb8())
+            } else {
+                img
+            }
+        }
+        // Keep original for formats that support transparency
+        _ => img,
+    }
+}
+
+/// Estimate output buffer size to reduce allocations
+fn estimate_output_size(img: &DynamicImage, format: OutputFormat) -> usize {
+    let pixel_count = (img.width() * img.height()) as usize;
+    match format {
+        OutputFormat::Jpg => pixel_count / 4,      // ~25% of raw size for JPEG
+        OutputFormat::Png => pixel_count * 2,      // ~200% for PNG (conservative)
+        OutputFormat::Webp => pixel_count / 3,     // ~33% for WebP
+        OutputFormat::Bmp => pixel_count * 3,      // ~300% for BMP (uncompressed)
+        OutputFormat::Gif => pixel_count,          // ~100% for GIF
+        OutputFormat::Tiff => pixel_count * 2,     // ~200% for TIFF
+    }
+}
+
+/// Create success embed for conversion
+fn create_success_embed(original_filename: &str, output_filename: &str) -> CreateEmbed {
+    let original_ext = get_extension(original_filename);
+    let target_ext = get_extension(output_filename);
+    
+    CreateEmbed::default()
+        .title("✅ Image Conversion Complete")
+        .description(format!("{} → {}", original_ext, target_ext))
+        .color(0x27ae60)
+}
+
+/// Create error embed for conversion failure
+fn create_error_embed(error: &Error) -> CreateEmbed {
+    CreateEmbed::default()
+        .title("❌ Image Conversion Failed")
+        .description(format!("Error: {}", error))
+        .color(0xff4444)
+}
+
+/// Helper function that performs the actual image conversion
 pub async fn convert_image_inner(
     file: &Attachment,
     output_format: OutputFormat,
 ) -> Result<(Vec<u8>, String), Error> {
-    let output_extension = match output_format {
-        OutputFormat::Jpg => "jpg",
-        OutputFormat::Png => "png",
-        OutputFormat::Webp => "webp",
-        OutputFormat::Bmp => "bmp",
-        OutputFormat::Gif => "gif",
-        OutputFormat::Tiff => "tiff",
-    };
+    // Download file data
+    let file_data = file
+        .download()
+        .await
+        .map_err(|e| Error::from(format!("Failed to download image: {}", e)))?;
 
-    let file_data = file.download().await.map_err(|e| {
-        Error::from(format!("Failed to download image: {}", e))
-    })?;
+    // Load image in blocking task to avoid blocking the async runtime
+    let img = tokio::task::spawn_blocking(move || {
+        image::load_from_memory(&file_data)
+            .map_err(|e| Error::from(format!("Failed to load image: {}", e)))
+    })
+    .await
+    .map_err(|e| Error::from(format!("Image loading task failed: {}", e)))??;
 
-    let img = image::load_from_memory(&file_data).map_err(|e| {
-        Error::from(format!("Failed to load image: {}", e))
-    })?;
+    // Optimize image for target format
+    let optimized_img = optimize_image_for_format(img, output_format);
 
-    let mut buf = Cursor::new(Vec::new());
+    // Perform encoding in blocking task
+    let output_bytes = tokio::task::spawn_blocking(move || {
+        // Pre-allocate buffer with estimated size
+        let estimated_size = estimate_output_size(&optimized_img, output_format);
+        let mut buf = Cursor::new(Vec::with_capacity(estimated_size));
+        
+        let image_format = output_format.to_image_format();
+        optimized_img
+            .write_to(&mut buf, image_format)
+            .map_err(|e| Error::from(format!("Failed to encode image: {}", e)))?;
+        
+        Ok::<Vec<u8>, Error>(buf.into_inner())
+    })
+    .await
+    .map_err(|e| Error::from(format!("Image encoding task failed: {}", e)))??;
 
-    let image_format = match output_format {
-        OutputFormat::Jpg => image::ImageOutputFormat::Jpeg(90),
-        OutputFormat::Png => image::ImageOutputFormat::Png,
-        OutputFormat::Webp => image::ImageOutputFormat::WebP,
-        OutputFormat::Bmp => image::ImageOutputFormat::Bmp,
-        OutputFormat::Gif => image::ImageOutputFormat::Gif,
-        OutputFormat::Tiff => image::ImageOutputFormat::Tiff,
-    };
-
-    img.write_to(&mut buf, image_format)
-        .map_err(|e| Error::from(format!("Failed to encode image: {}", e)))?;
-
-    let output_bytes = buf.into_inner();
-
-    // Generate filename based on original, replace extension
-    let base_filename = file.filename.rsplit('.').nth(1).unwrap_or(&file.filename);
-    let output_filename = format!("{}.{}", base_filename, output_extension);
+    // Generate output filename
+    let output_filename = generate_output_filename(&file.filename, output_format);
 
     Ok((output_bytes, output_filename))
 }
-
 
 /// Convert an image
 #[poise::command(slash_command)]
@@ -74,16 +160,10 @@ pub async fn convert_image(
 ) -> Result<(), Error> {
     ctx.defer().await?;
 
-    let original_extension = file.filename.rsplit('.').next().unwrap_or("tmp");
-
     match convert_image_inner(&file, output_format).await {
         Ok((converted_bytes, output_filename)) => {
             let attachment = CreateAttachment::bytes(converted_bytes, &output_filename);
-
-            let embed = CreateEmbed::default()
-                .title("✅ Conversion Complete")
-                .description(format!("{} → {}", original_extension, output_filename.rsplit('.').next().unwrap_or("")))
-                .color(0x27ae60);
+            let embed = create_success_embed(&file.filename, &output_filename);
 
             let reply = poise::CreateReply::default()
                 .embed(embed)
@@ -92,13 +172,8 @@ pub async fn convert_image(
             ctx.send(reply).await?;
         }
         Err(e) => {
-            let embed = CreateEmbed::default()
-                .title("❌ Conversion Failed")
-                .description(format!("Conversion error: {}", e))
-                .color(0xff4444);
-
-            let reply = poise::CreateReply::default().embed(embed);
-            ctx.send(reply).await?;
+            let embed = create_error_embed(&e);
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
             return Err(e);
         }
     }
