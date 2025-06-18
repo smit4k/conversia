@@ -107,7 +107,7 @@ pub async fn convert_document_inner(
     Ok((converted_data, output_filename))
 }
 
-/// Slash command handler for converting documents
+/// Convert a document
 #[poise::command(slash_command)]
 pub async fn convert_document(
     ctx: Context<'_>,
