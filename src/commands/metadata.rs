@@ -7,7 +7,7 @@ use metaflac::Tag as FlacTag;
 use crate::{Context, Error};
 
 /// View the metadata of an mp3 or flac file
-#[poise::command(slash_command)]
+#[poise::command(slash_command, rename = "audio meta")]
 pub async fn audio_meta(
     ctx: Context<'_>,
     #[description = "Audio file (.mp3 or .flac) to extract metadata from"] file: Attachment,

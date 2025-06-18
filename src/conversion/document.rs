@@ -104,7 +104,7 @@ pub async fn convert_document_inner(
 }
 
 /// Convert a document
-#[poise::command(slash_command)]
+#[poise::command(slash_command, rename = "convert document")]
 pub async fn convert_document(
     ctx: Context<'_>,
     #[description = "Document to convert"] file: Attachment,

@@ -66,7 +66,7 @@ pub async fn convert_image_inner(
 
 
 /// Convert an image
-#[poise::command(slash_command)]
+#[poise::command(slash_command, rename = "convert image")]
 pub async fn convert_image(
     ctx: Context<'_>,
     #[description = "Image to convert"] file: Attachment,
