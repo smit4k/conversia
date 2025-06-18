@@ -92,6 +92,10 @@ pub async fn convert_document_inner(
 
     let converted_data = fs::read(&output_path).await.map_err(|e| Error::from(format!("Failed to read converted file: {}", e)))?;
 
+    // Extract just extensions for display in embed description
+    let original_ext = file.filename.rsplit('.').next().unwrap_or("tmp");
+    let target_ext = if pandoc_format == "markdown" { "md" } else { pandoc_format };
+
     let base_filename = file.filename.rsplit('.').nth(1).unwrap_or(&file.filename);
     let output_filename = if pandoc_format == "markdown" {
         format!("{}.md", base_filename)
@@ -99,6 +103,7 @@ pub async fn convert_document_inner(
         format!("{}.{}", base_filename, pandoc_format)
     };
 
+    // Return converted bytes and output filename
     Ok((converted_data, output_filename))
 }
 
@@ -111,10 +116,14 @@ pub async fn convert_document(
 ) -> Result<(), Error> {
     match convert_document_inner(&file, output_format).await {
         Ok((converted_data, output_filename)) => {
+            // Show only extensions in the embed description, e.g. "md → docx"
+            let original_ext = file.filename.rsplit('.').next().unwrap_or("tmp");
+            let target_ext = output_filename.rsplit('.').next().unwrap_or("tmp");
+
             let attachment = CreateAttachment::bytes(converted_data, &output_filename);
             let embed = CreateEmbed::default()
                 .title("✅ Conversion Complete")
-                .description(format!("{} → {}", file.filename, output_filename))
+                .description(format!("{} → {}", original_ext, target_ext))
                 .color(0x27ae60);
 
             let reply = poise::CreateReply::default()
