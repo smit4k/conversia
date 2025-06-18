@@ -92,10 +92,6 @@ pub async fn convert_document_inner(
 
     let converted_data = fs::read(&output_path).await.map_err(|e| Error::from(format!("Failed to read converted file: {}", e)))?;
 
-    // Extract just extensions for display in embed description
-    let original_ext = file.filename.rsplit('.').next().unwrap_or("tmp");
-    let target_ext = if pandoc_format == "markdown" { "md" } else { pandoc_format };
-
     let base_filename = file.filename.rsplit('.').nth(1).unwrap_or(&file.filename);
     let output_filename = if pandoc_format == "markdown" {
         format!("{}.md", base_filename)
