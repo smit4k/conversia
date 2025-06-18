@@ -51,7 +51,7 @@ async fn main() {
             encryption::decrypt::decrypt()],
             
             prefix_options: poise::PrefixFrameworkOptions {
-                prefix: Some("c!".into()),
+                prefix: Some(".".into()),
                 ..Default::default()
             },
             event_handler: |ctx, event, framework, data| {
