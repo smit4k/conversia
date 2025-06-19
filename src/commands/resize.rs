@@ -2,7 +2,7 @@ use std::io::Cursor;
 use serenity::all::{Attachment, CreateEmbed};
 use poise::serenity_prelude::CreateAttachment;
 use image::{load_from_memory, ImageFormat};
-use fast_image_resize::Resizer;
+use fast_image_resize::{Resizer, FilterType, ResizeAlg, ResizeOptions};
 use fast_image_resize::images::Image;
 use crate::{Context, Error};
 
@@ -76,9 +76,16 @@ pub async fn resize_image(
         fast_image_resize::PixelType::U8x4,
     );
 
+    // Create resize options to choose filter algorithm
+    let resize_options = ResizeOptions {
+        algorithm: ResizeAlg::Convolution(FilterType::Bilinear),
+        ..ResizeOptions::default()
+    };
+
     // Create Resizer instance and resize source image
     let mut resizer = Resizer::new();
-    if let Err(e) = resizer.resize(&src_fr_image, &mut dst_image, None) {
+
+    if let Err(e) = resizer.resize(&src_fr_image, &mut dst_image, Some(&resize_options)) {
         let embed = CreateEmbed::default()
             .title("❌ Resize Failed")
             .description("Could not resize the image")
@@ -134,7 +141,6 @@ pub async fn resize_image(
     let embed = CreateEmbed::default()
         .title("✅ Resize Complete")
         .description(format!("{}×{} → {}×{}", original_width, original_height, width, height))
-        .field("Algorithm", "Lanczos3 (High Quality)", false)
         .color(0x27ae60);
 
     let reply = poise::CreateReply::default()
