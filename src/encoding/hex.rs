@@ -5,6 +5,7 @@ use serenity::all::CreateEmbedFooter;
 
 use crate::{Context, Error};
 use crate::utils::{format_file_size, detect_file_type};
+use std::path::Path;
 use hex;
 
 /// Encode a file to hex
@@ -13,6 +14,8 @@ pub async fn hex_encode(
     ctx: Context<'_>,
     #[description = "File to encode"] file: Attachment,
 ) -> Result<(), Error> {
+    ctx.defer().await?;
+
     let file_data = match file.download().await {
         Ok(data) => data,
         Err(e) => {
@@ -30,22 +33,24 @@ pub async fn hex_encode(
         move || hex::encode(&data)
     }).await?;
 
-    if encoded.len() > 1024 {
-        let encoded_bytes = encoded.as_bytes();
-        let safe_filename = format!(
-            "{}_encoded.txt",
-            file.filename.trim_end_matches(|c: char| c == '.' || c.is_alphanumeric())
-        );
+    let original_size = format_file_size(file_data.len() as u64);
+    let encoded_size = format_file_size(encoded.len() as u64);
 
-        let attachment = serenity::CreateAttachment::bytes(encoded_bytes.to_vec(), safe_filename);
+    if encoded.len() > 1024 {
+        let stem = Path::new(&file.filename)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("file");
+
+        let filename = format!("{}_encoded.txt", stem);
+        let encoded_bytes = encoded.into_bytes();
+        let attachment = serenity::CreateAttachment::bytes(encoded_bytes, filename);
 
         let embed = CreateEmbed::new()
             .title("✅ Hex Encoded")
             .description(format!(
                 "**Original file:** `{}`\n**Size:** {}\n**Encoded size:** {}",
-                file.filename,
-                format_file_size(file_data.len() as u64),
-                format_file_size(encoded.len() as u64)
+                file.filename, original_size, encoded_size
             ))
             .footer(CreateEmbedFooter::new("Encoded data is attached as a file."))
             .color(0x27ae60);
@@ -61,8 +66,8 @@ pub async fn hex_encode(
             .description(format!(
                 "**Original file:** `{}`\n**Size:** {}\n**Encoded size:** {}",
                 file.filename,
-                format_file_size(file_data.len() as u64),
-                format_file_size(encoded.len() as u64)
+                original_size,
+                encoded_size,
             ))
             .field("Encoded Data", format!("```\n{}\n```", encoded), false)
             .color(0x27ae60);
@@ -80,6 +85,8 @@ pub async fn hex_decode(
     #[description = "Hex encoded file"] file: Option<Attachment>,
     #[description = "Hex encoded string"] hex_string: Option<String>,
 ) -> Result<(), Error> {
+    ctx.defer().await?;
+
     let (hex_input, original_filename) = if let Some(file) = file {
         let filename = file.filename.clone();
         match file.download().await {
@@ -108,7 +115,7 @@ pub async fn hex_decode(
     };
 
     let hex_input_clone = hex_input.clone();
-    let decoded_data = match tokio::task::spawn_blocking(move || hex::decode(&hex_input)).await? {
+    let decoded_data = match tokio::task::spawn_blocking(move || hex::decode(hex_input_clone)).await? {
         Ok(data) => data,
         Err(e) => {
             let embed = CreateEmbed::new()
@@ -128,7 +135,7 @@ pub async fn hex_decode(
         .description(format!(
             "**Original file:** `{}`\n**Encoded size:** {}\n**Decoded size:** {}",
             original_filename.as_deref().unwrap_or("N/A"),
-            format_file_size(hex_input_clone.len() as u64),
+            format_file_size(hex_input.len() as u64),
             format_file_size(decoded_data.len() as u64)
         ))
         .footer(CreateEmbedFooter::new("Decoded data is attached as a file."))
