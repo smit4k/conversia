@@ -7,6 +7,7 @@ enum HelpPage {
     Overview,
     Conversion,
     Encryption,
+    Encoding,
     Compression,
     Other,
 }
@@ -43,6 +44,17 @@ impl HelpPage {
                     .field("/decrypt", "Decrypt files that were previously encrypted.\n• Supports Age-encrypted files\n• Requires the original password", false)
                     .footer(serenity::builder::CreateEmbedFooter::new("Save your password! - you'll need it to decrypt your file"))
             }
+            HelpPage::Encoding => {
+                serenity::builder::CreateEmbed::default()
+                    .title("Conversia Help - Encoding")
+                    .description("Encode files to different formats")
+                    .color(0x3498DB)  // Blue
+                    .field("/base64_encode", "Encode a file to Base64 format.", false)
+                    .field("/base64_decode", "Decode a Base64-encoded file.", false)
+                    .field("/hex_encode", "Encode a file to Hex format.", false)
+                    .field("/hex_decode", "Decode a Hex-encoded file.", false)
+                    .footer(serenity::builder::CreateEmbedFooter::new("Encoding is useful for data transfer and storage"))
+            }
             HelpPage::Compression => {
                 serenity::builder::CreateEmbed::default()
                     .title("Conversia Help - Compression")
@@ -57,10 +69,10 @@ impl HelpPage {
                     .title("Conversia Help - Other Tools")
                     .description("Additional utilities and information")
                     .color(0x9B59B6)  // Purple
-                    .field("/resize_image", "Resize an image using the high-quality Lanczos3 algorithm", false)
+                    .field("/resize_image", "Resize an image", false)
                     .field("/hash", "Generate a hash for a file.\n• Supports: SHA-256, SHA-1, MD5, BLAKE3", false)
                     .field("/audio_meta", "Extract metadata from MP3 and FLAC files.\n• Shows: title, artist, album, year, genre\n• Works with most MP3 and FLAC files", false)
-                    .field("/about", "Learn more about the Conversia bot.\n• Information about the bot n\n• Legal information", false)
+                    .field("/about", "Learn more about the Conversia bot.\n• Information about the bot\n• Legal information", false)
                     .field("/ping", "Check the bot's latency.\n• Useful for debugging connection issues", false)
                     .field("/help", "Shows this help system.\n• Navigate between categories\n• Find detailed command information", false)
                     .footer(serenity::builder::CreateEmbedFooter::new("More tools coming soon!"))
@@ -82,6 +94,10 @@ impl HelpPage {
                 .label("Encryption")
                 .style(if matches!(self, HelpPage::Encryption) { ButtonStyle::Primary } else { ButtonStyle::Secondary })
                 .emoji('🔒'),
+            CreateButton::new("help_encoding")
+                .label("Encoding")
+                .style(if matches!(self, HelpPage::Encoding) { ButtonStyle::Primary } else { ButtonStyle::Secondary })
+                .emoji('🔤'),
             CreateButton::new("help_compression")
                 .label("Compression")
                 .style(if matches!(self, HelpPage::Compression) { ButtonStyle::Primary } else { ButtonStyle::Secondary })
@@ -145,6 +161,7 @@ pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
             "help_overview" => HelpPage::Overview,
             "help_conversion" => HelpPage::Conversion,
             "help_encryption" => HelpPage::Encryption,
+            "help_encoding" => HelpPage::Encoding,
             "help_compression" => HelpPage::Compression,
             "help_other" => HelpPage::Other,
             _ => continue, // Ignore unknown interactions
