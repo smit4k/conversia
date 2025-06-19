@@ -10,6 +10,7 @@ mod commands;
 mod conversion;
 mod compression;
 mod encryption;
+mod encoding;
 mod utils;
 
 async fn event_handler(
@@ -48,8 +49,11 @@ async fn main() {
             conversion::document::convert_document(), 
             conversion::image::convert_image(),
             encryption::encrypt::encrypt(),
-            encryption::decrypt::decrypt()],
-            
+            encryption::decrypt::decrypt(),
+            encoding::base64::base64_encode(),
+            encoding::base64::base64_decode(),
+        ],
+
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some(".".into()),
                 ..Default::default()
