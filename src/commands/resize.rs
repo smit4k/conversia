@@ -1,9 +1,9 @@
 use std::io::Cursor;
-use serenity::all::{Attachment, CreateEmbed};
+use serenity::all::{Attachment, CreateEmbed, CreateEmbedFooter};
 use poise::serenity_prelude::CreateAttachment;
-use image::{load_from_memory, ImageFormat};
-use fast_image_resize::{Resizer, FilterType, ResizeAlg, ResizeOptions};
-use fast_image_resize::images::Image;
+use image::{load_from_memory, ImageFormat, RgbaImage, DynamicImage};
+use resize::{Pixel::RGBA8, Type, Resizer};
+use rgb::RGBA;
 use crate::{Context, Error};
 
 /// Resize an image
@@ -15,138 +15,107 @@ pub async fn resize_image(
     #[description = "New height in pixels"] height: u32,
 ) -> Result<(), Error> {
     ctx.defer().await?;
-
-    // Validate dimensions
-    if width == 0 || height == 0 || width > 8192 || height > 8192 {
+    
+    if width == 0 || height == 0 || width > 16384 || height > 16384 {
         let embed = CreateEmbed::default()
             .title("❌ Invalid Dimensions")
-            .description("Width and height must be between 1 and 8192 pixels")
+            .description("Width and height must be between 1 and 16384 pixels")
+            .footer(CreateEmbedFooter::new("Dimension limits prevent resource exhaustion."))
             .color(0xff4444);
-        let reply = poise::CreateReply::default().embed(embed);
-        ctx.send(reply).await?;
+        ctx.send(poise::CreateReply::default().embed(embed)).await?;
         return Ok(());
     }
-
-    // Download the attachment
-    let bytes = match attachment.download().await {
-        Ok(data) => data,
-        Err(e) => {
-            let embed = CreateEmbed::default()
-                .title("❌ Download Failed")
-                .description("Failed to download the attached file")
-                .color(0xff4444);
-            let reply = poise::CreateReply::default().embed(embed);
-            ctx.send(reply).await?;
-            return Err(e.into());
-        }
-    };
-
-    // Load image
-    let src_image = match load_from_memory(&bytes) {
-        Ok(img) => img,
-        Err(_) => {
-            let embed = CreateEmbed::default()
-                .title("❌ Could Not Read Image")
-                .description("The uploaded file isn't a valid image format.")
-                .color(0xff4444);
-            let reply = poise::CreateReply::default().embed(embed);
-            ctx.send(reply).await?;
-            return Ok(());
-        }
-    };
-
-    let original_width = src_image.width();
-    let original_height = src_image.height();
-
-    // Convert DynamicImage to RGBA8 for fast_image_resize
-    let rgba_image = src_image.to_rgba8();
     
-    // Create fast_image_resize Image from RGBA data
-    let src_fr_image = Image::from_vec_u8(
-        original_width,
-        original_height,
-        rgba_image.into_raw(),
-        fast_image_resize::PixelType::U8x4,
-    ).map_err(|e| format!("Failed to create source image: {}", e))?;
-
-    // Create container for destination image
-    let mut dst_image = Image::new(
-        width,
-        height,
-        fast_image_resize::PixelType::U8x4,
-    );
-
-    // Create resize options to choose filter algorithm
-    let resize_options = ResizeOptions {
-        algorithm: ResizeAlg::Convolution(FilterType::Bilinear),
-        ..ResizeOptions::default()
-    };
-
-    // Create Resizer instance and resize source image
-    let mut resizer = Resizer::new();
-
-    if let Err(e) = resizer.resize(&src_fr_image, &mut dst_image, Some(&resize_options)) {
+    let bytes = attachment.download().await.map_err(|e| {
         let embed = CreateEmbed::default()
-            .title("❌ Resize Failed")
-            .description("Could not resize the image")
+            .title("❌ Download Failed")
+            .description("Failed to download the attached file.")
             .color(0xff4444);
-        let reply = poise::CreateReply::default().embed(embed);
-        ctx.send(reply).await?;
-        return Err(format!("Resize error: {}", e).into());
-    }
-
-    // Determine output format from original filename
-    let original_extension = attachment.filename.rsplit('.').next().unwrap_or("png").to_lowercase();
-    let format = match original_extension.as_str() {
-        "jpg" | "jpeg" => ImageFormat::Jpeg,
-        "png" => ImageFormat::Png,
-        "webp" => ImageFormat::WebP,
-        "gif" => ImageFormat::Gif,
-        "bmp" => ImageFormat::Bmp,
-        "tiff" | "tif" => ImageFormat::Tiff,
-        _ => ImageFormat::Png,
-    };
-
-    // Convert resized data back to RGBA8 image
-    let resized_rgba = image::RgbaImage::from_raw(width, height, dst_image.into_vec())
-        .ok_or("Failed to create output image")?;
+        let _ = ctx.send(poise::CreateReply::default().embed(embed));
+        e
+    })?;
     
-    // Convert to appropriate format for encoding
-    let final_image = match format {
-        ImageFormat::Jpeg => image::DynamicImage::ImageRgb8(
-            image::DynamicImage::ImageRgba8(resized_rgba).to_rgb8()
-        ),
-        _ => image::DynamicImage::ImageRgba8(resized_rgba),
-    };
-
-    // Write destination image to buffer
-    let mut result_buf = Cursor::new(Vec::new());
+    let (output_bytes, original_width, original_height, original_extension) = tokio::task::spawn_blocking(move || {
+        // Load image
+        let src_image = load_from_memory(&bytes).map_err(|_| "Invalid image format")?;
+        let original_width = src_image.width();
+        let original_height = src_image.height();
+        let rgba = src_image.to_rgba8();
+        
+        // Convert raw bytes to RGBA pixels - using RGBA<u8> from rgb crate
+        let src_pixels: Vec<RGBA<u8>> = rgba.as_raw()
+            .chunks_exact(4)
+            .map(|chunk| RGBA { r: chunk[0], g: chunk[1], b: chunk[2], a: chunk[3] })
+            .collect();
+        
+        // Create destination buffer with proper RGBA pixel type
+        let mut dst_pixels = vec![RGBA { r: 0u8, g: 0u8, b: 0u8, a: 0u8 }; (width * height) as usize];
+        
+        // Choose optimal resize algorithm based on scaling direction (as stated by resize crate docs)
+        let resize_type = if (width as f32 * height as f32) < (original_width as f32 * original_height as f32) {
+            Type::Lanczos3
+        } else {
+            Type::Mitchell  
+        };
+        
+        let mut resizer = Resizer::new(
+            original_width as usize,
+            original_height as usize,
+            width as usize,
+            height as usize,
+            RGBA8,
+            resize_type,
+        ).map_err(|_| "Failed to create resizer")?;
+        
+        resizer.resize(&src_pixels[..], &mut dst_pixels[..]).map_err(|_| "Resize failed")?;
+        
+        // Convert back to raw bytes
+        let dst_bytes: Vec<u8> = dst_pixels
+            .iter()
+            .flat_map(|pixel| vec![pixel.r, pixel.g, pixel.b, pixel.a])
+            .collect();
+        
+        let resized = RgbaImage::from_raw(width, height, dst_bytes).ok_or("Failed to build image")?;
+        
+        let ext = attachment
+            .filename
+            .rsplit('.')
+            .next()
+            .unwrap_or("png")
+            .to_lowercase();
+            
+        let format = match ext.as_str() {
+            "jpg" | "jpeg" => ImageFormat::Jpeg,
+            "png" => ImageFormat::Png,
+            "webp" => ImageFormat::WebP,
+            "gif" => ImageFormat::Gif,
+            "bmp" => ImageFormat::Bmp,
+            "tif" | "tiff" => ImageFormat::Tiff,
+            _ => ImageFormat::Png,
+        };
+        
+        let dyn_img = match format {
+            ImageFormat::Jpeg => DynamicImage::ImageRgb8(DynamicImage::ImageRgba8(resized).to_rgb8()),
+            _ => DynamicImage::ImageRgba8(resized),
+        };
+        
+        let mut buffer = Cursor::new(Vec::new());
+        dyn_img.write_to(&mut buffer, format).map_err(|_| "Encoding failed")?;
+        
+        Ok::<_, &str>((buffer.into_inner(), original_width, original_height, ext))
+    }).await.unwrap_or_else(|_| Err("Resize task panicked"))?;
     
-    if let Err(e) = final_image.write_to(&mut result_buf, format) {
-        let embed = CreateEmbed::default()
-            .title("❌ Encoding Failed")
-            .description("Could not encode the resized image")
-            .color(0xff4444);
-        let reply = poise::CreateReply::default().embed(embed);
-        ctx.send(reply).await?;
-        return Err(e.into());
-    }
-
-    let output_bytes = result_buf.into_inner();
-    
-    // Create filename for resized image
+    // Prepare response
     let filename = format!("resized_{}x{}.{}", width, height, original_extension);
-    let attachment_out = CreateAttachment::bytes(output_bytes, filename);
-
     let embed = CreateEmbed::default()
         .title("✅ Resize Complete")
         .description(format!("{}×{} → {}×{}", original_width, original_height, width, height))
         .color(0x27ae60);
-
+    
     let reply = poise::CreateReply::default()
         .embed(embed)
-        .attachment(attachment_out);
-
+        .attachment(CreateAttachment::bytes(output_bytes, filename));
+    
     ctx.send(reply).await?;
     Ok(())
 }
