@@ -112,18 +112,9 @@ pub async fn convert_document(
 ) -> Result<(), Error> {
     match convert_document_inner(&file, output_format).await {
         Ok((converted_data, output_filename)) => {
-            // Show only extensions in the embed description, e.g. "md → docx"
-            let original_ext = file.filename.rsplit('.').next().unwrap_or("tmp");
-            let target_ext = output_filename.rsplit('.').next().unwrap_or("tmp");
-
             let attachment = CreateAttachment::bytes(converted_data, &output_filename);
-            let embed = CreateEmbed::default()
-                .title("✅ Conversion Complete")
-                .description(format!("{} → {}", original_ext, target_ext))
-                .color(0x27ae60);
 
             let reply = poise::CreateReply::default()
-                .embed(embed)
                 .attachment(attachment);
 
             ctx.send(reply).await?;
