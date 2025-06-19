@@ -46,11 +46,6 @@ impl OutputFormat {
     }
 }
 
-/// Extract file extension from filename
-fn get_extension(filename: &str) -> &str {
-    filename.rsplit('.').next().unwrap_or("tmp")
-}
-
 /// Generate output filename from input filename and format
 fn generate_output_filename(input_filename: &str, format: OutputFormat) -> String {
     let base = input_filename
@@ -86,17 +81,6 @@ fn estimate_output_size(img: &DynamicImage, format: OutputFormat) -> usize {
         OutputFormat::Gif => pixel_count,          // ~100% for GIF
         OutputFormat::Tiff => pixel_count * 2,     // ~200% for TIFF
     }
-}
-
-/// Create success embed for conversion
-fn create_success_embed(original_filename: &str, output_filename: &str) -> CreateEmbed {
-    let original_ext = get_extension(original_filename);
-    let target_ext = get_extension(output_filename);
-    
-    CreateEmbed::default()
-        .title("✅ Image Conversion Complete")
-        .description(format!("{} → {}", original_ext, target_ext))
-        .color(0x27ae60)
 }
 
 /// Create error embed for conversion failure
@@ -163,10 +147,8 @@ pub async fn convert_image(
     match convert_image_inner(&file, output_format).await {
         Ok((converted_bytes, output_filename)) => {
             let attachment = CreateAttachment::bytes(converted_bytes, &output_filename);
-            let embed = create_success_embed(&file.filename, &output_filename);
 
             let reply = poise::CreateReply::default()
-                .embed(embed)
                 .attachment(attachment);
 
             ctx.send(reply).await?;
