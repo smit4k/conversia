@@ -38,52 +38,38 @@ pub async fn audio_meta(
     fs::write(&path, &bytes).await?;
 
     // Extract metadata
-    let (title, artist, album, year, genre) = if is_mp3 {
-        match Id3Tag::read_from_path(&path) {
-            Ok(tag) => (
-                tag.title().unwrap_or("Unknown").to_string(),
-                tag.artist().unwrap_or("Unknown").to_string(),
-                tag.album().unwrap_or("Unknown").to_string(),
-                tag.year().map_or("Unknown".to_string(), |y| y.to_string()),
-                tag.genre().unwrap_or("Unknown").to_string(),
-            ),
-            Err(err) => {
-                let embed = CreateEmbed::default()
-                    .title("❌ Failed to Read MP3 Metadata")
-                    .description(format!("ID3 error: {}", err))
-                    .color(0xff4444);
-                let reply = poise::CreateReply::default().embed(embed);
-                ctx.send(reply).await?;
-                return Ok(());
+    let (title, artist, album, year, genre) = tokio::task::spawn_blocking(move || {
+        if is_mp3 {
+            match Id3Tag::read_from_path(&path) {
+                Ok(tag) => Ok((
+                    tag.title().unwrap_or("Unknown").to_string(),
+                    tag.artist().unwrap_or("Unknown").to_string(),
+                    tag.album().unwrap_or("Unknown").to_string(),
+                    tag.year().map_or("Unknown".to_string(), |y| y.to_string()),
+                    tag.genre().unwrap_or("Unknown").to_string(),
+                )),
+                Err(err) => Err(format!("ID3 error: {}", err)),
+            }
+        } else {
+            match FlacTag::read_from_path(&path) {
+                Ok(tag) => {
+                    let get = |k: &str| {
+                        tag.vorbis_comments()
+                            .and_then(|c| c.get(k).and_then(|v| v.first().cloned()))
+                            .unwrap_or_else(|| "Unknown".to_string())
+                    };
+                    Ok((
+                        get("TITLE"),
+                        get("ARTIST"),
+                        get("ALBUM"),
+                        get("DATE"),
+                        get("GENRE"),
+                    ))
+                }
+                Err(err) => Err(format!("FLAC error: {}", err)),
             }
         }
-    } else {
-        match FlacTag::read_from_path(&path) {
-            Ok(tag) => {
-                let get = |k: &str| {
-                    tag.vorbis_comments()
-                        .and_then(|c| c.get(k).and_then(|v| v.first().cloned()))
-                        .unwrap_or_else(|| "Unknown".to_string())
-                };
-                (
-                    get("TITLE"),
-                    get("ARTIST"),
-                    get("ALBUM"),
-                    get("DATE"),
-                    get("GENRE"),
-                )
-            }
-            Err(err) => {
-                let embed = CreateEmbed::default()
-                    .title("❌ Failed to Read FLAC Metadata")
-                    .description(format!("FLAC error: {}", err))
-                    .color(0xff4444);
-                let reply = poise::CreateReply::default().embed(embed);
-                ctx.send(reply).await?;
-                return Ok(());
-            }
-        }
-    };
+    }).await.unwrap_or_else(|_| Err("Metadata reading task panicked".to_string()))?;
 
     // Create response embed
     let embed = CreateEmbed::default()
