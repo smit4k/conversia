@@ -35,7 +35,7 @@ pub async fn base64_encode(
         general_purpose::STANDARD.encode(&file_data_clone)
     }).await?;
 
-    if encoded.len() > 1900 {  // Leave room for embed formatting
+    if encoded.len() > 1024 {  // Leave room for embed formatting
         // Send as file attachment instead
         let encoded_bytes = encoded.as_bytes();
         let attachment = serenity::CreateAttachment::bytes(
