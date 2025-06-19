@@ -424,6 +424,7 @@ dependencies = [
  "dotenv",
  "fast_image_resize",
  "flate2",
+ "hex",
  "id3",
  "image",
  "lz4",

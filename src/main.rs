@@ -52,6 +52,8 @@ async fn main() {
             encryption::decrypt::decrypt(),
             encoding::base64::base64_encode(),
             encoding::base64::base64_decode(),
+            encoding::hex::hex_encode(),
+            encoding::hex::hex_decode(),
         ],
 
             prefix_options: poise::PrefixFrameworkOptions {
