@@ -11,7 +11,7 @@ use crate::{Context, Error};
 
 
 /// Encode a file to hex
-#[poise::command(slash_command)]
+#[poise::command(slash_command, ephemeral)]
 pub async fn hex_encode(
     ctx: Context<'_>,
     #[description = "File to encode"] file: Attachment,
@@ -74,7 +74,7 @@ pub async fn hex_encode(
 
 
 /// Decode a hex encoded file or string
-#[poise::command(slash_command)]
+#[poise::command(slash_command, ephemeral)]
 pub async fn hex_decode(
     ctx: Context<'_>,
     #[description = "Hex encoded file"] file: Option<Attachment>,

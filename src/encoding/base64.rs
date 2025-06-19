@@ -10,7 +10,7 @@ use crate::{Context, Error};
 
 
 /// Encode a file to base64
-#[poise::command(slash_command)]
+#[poise::command(slash_command, ephemeral)]
 pub async fn base64_encode(
     ctx: Context<'_>,
     #[description = "File to encode"] file: Attachment,
@@ -73,7 +73,7 @@ pub async fn base64_encode(
 }
 
 /// Decode a base64 encoded file or string
-#[poise::command(slash_command)]
+#[poise::command(slash_command, ephemeral)]
 pub async fn base64_decode(
     ctx: Context<'_>,
     #[description = "Base64 encoded file"] file: Option<Attachment>,
