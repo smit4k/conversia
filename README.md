@@ -11,7 +11,8 @@ Conversia is a powerful, multi-purpose file utility bot written in Rust using th
 - **Image Resizing**: Resize an image using the high-quality Lanczos3 algorithm
 - **File Compression/Decompression**: Compress and decompress files with formats like ZIP, TAR.GZ, BZ2, ZST, and LZ4.
 - **File Encryption/Decryption**: Securely encrypt and decrypt files using the Age encryption standard.
-- **Hash Generation**: Generate a has for a file with algorithms SHA-256, SHA-1, MD5, BLAKE3
+- **File Encoding/Decoding**: Securly encode and decode files with base64 and hex
+- **Hash Generation**: Generate a hash for a file with algorithms SHA-256, SHA-1, MD5, BLAKE3
 - **Audio Metadata Extraction**: Extract metadata from MP3 and FLAC files, including title, artist, album, year, and genre.
 
 ## Add to your Server
@@ -53,17 +54,22 @@ Add Conversia to your server [here](https://discord.com/oauth2/authorize?client_
 
 Conversia supports the following commands:
 
-- `/convert_document`: Convert documents to various formats.
-- `/convert_image`: Convert images between formats.
-- `/compress`: Compress files into different formats.
+- `/convert_document`: Convert documents to various formats
+- `/convert_image`: Convert images between formats
+- `/compress`: Compress files into different formats
 - `/decompress`: Decompress a file
-- `/encrypt`: Encrypt files securely.
-- `/decrypt`: Decrypt encrypted files.
+- `/encrypt`: Encrypt files securely
+- `/decrypt`: Decrypt encrypted files
+- `/base64_encode`: Encode a file to base64
+- `/base64_decode`: Decode a base64 encoded file or string
+- `/hex_encode`: Encode a file to hex
+- `/hex_decode`: Decode a hex encoded file or string
 - `/hash`: Generate a hash for a file
-- `/resize_image`: Resize an image using the Lanczos3 algorithm.
-- `/audio_meta`: Extract metadata from MP3 and FLAC files.
-- `/about`: Learn more about Conversia.
+- `/resize_image`: Resize an image
+- `/audio_meta`: Extract metadata from MP3 and FLAC files
+- `/about`: Learn more about Conversia
 - `/help`: Shows all commands of Conversia
+- `/ping`: Checks the bot's latency
 
 ## Contributing
 
