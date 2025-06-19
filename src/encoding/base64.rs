@@ -28,7 +28,11 @@ pub async fn base64_encode(
         }
     };
 
-    let encoded = general_purpose::STANDARD.encode(&file_data);
+    let file_data_clone = file_data.clone();
+    let encoded = tokio::task::spawn_blocking(move || {
+        general_purpose::STANDARD.encode(&file_data_clone)
+    }).await?;
+
     if encoded.len() > 1900 {  // Leave room for embed formatting
         // Send as file attachment instead
         let encoded_bytes = encoded.as_bytes();
@@ -102,7 +106,11 @@ pub async fn base64_decode(
         return Ok(());
     };
 
-    match general_purpose::STANDARD.decode(&data_to_decode) {
+    let decoded_result = tokio::task::spawn_blocking(move || {
+        general_purpose::STANDARD.decode(&data_to_decode)
+    }).await?;
+
+    match decoded_result {
         Ok(decoded) => {
             // Check if decoded data is too large for Discord message
             let decoded_string = String::from_utf8_lossy(&decoded);
