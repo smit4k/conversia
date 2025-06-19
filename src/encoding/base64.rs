@@ -3,42 +3,11 @@ use poise::serenity_prelude::Attachment;
 use ::serenity::all::CreateEmbedFooter;
 use serenity::builder::CreateEmbed;
 use crate::utils::format_file_size;
+use crate::utils::detect_file_type;
 
 use base64::{engine::general_purpose, Engine};
 use crate::{Context, Error};
 
-// Helper function to detect file type from magic bytes
-fn detect_file_type(data: &[u8]) -> String {
-    if data.len() < 4 {
-        return "decoded_data.bin".to_string();
-    }
-    
-    match &data[0..4] {
-        [0x89, 0x50, 0x4E, 0x47] => "decoded_image.png".to_string(),
-        [0xFF, 0xD8, 0xFF, ..] => "decoded_image.jpg".to_string(),
-        [0x47, 0x49, 0x46, 0x38] => "decoded_image.gif".to_string(),
-        [0x52, 0x49, 0x46, 0x46] => {
-            // Check if it's a WEBP
-            if data.len() >= 12 && &data[8..12] == b"WEBP" {
-                "decoded_image.webp".to_string()
-            } else {
-                "decoded_audio.wav".to_string()
-            }
-        },
-        [0x25, 0x50, 0x44, 0x46] => "decoded_document.pdf".to_string(),
-        [0x50, 0x4B, 0x03, 0x04] => "decoded_archive.zip".to_string(),
-        [0x50, 0x4B, 0x05, 0x06] => "decoded_archive.zip".to_string(),
-        [0x50, 0x4B, 0x07, 0x08] => "decoded_archive.zip".to_string(),
-        _ => {
-            // Check if it's plain text
-            if data.iter().all(|&b| b.is_ascii() && (b.is_ascii_graphic() || b.is_ascii_whitespace())) {
-                "decoded_text.txt".to_string()
-            } else {
-                "decoded_data.bin".to_string()
-            }
-        }
-    }
-}
 
 /// Encode a file to base64
 #[poise::command(slash_command)]
