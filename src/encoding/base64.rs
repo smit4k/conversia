@@ -15,6 +15,8 @@ pub async fn base64_encode(
     ctx: Context<'_>,
     #[description = "File to encode"] file: Attachment,
 ) -> Result<(), Error> {
+    ctx.defer().await?;
+    
     let file_data = match file.download().await {
         Ok(data) => data,
         Err(e) => {
@@ -83,6 +85,8 @@ pub async fn base64_decode(
     #[description = "Base64 encoded file"] file: Option<Attachment>,
     #[description = "Base64 encoded string"] string: Option<String>,
 ) -> Result<(), Error> {
+    ctx.defer().await?;
+
     let data_to_decode = if let Some(file) = file {
         match file.download().await {
             Ok(file_data) => file_data,
