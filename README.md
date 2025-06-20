@@ -9,7 +9,7 @@ Conversia is a powerful, multi-purpose file utility bot written in Rust using th
 - **Document Conversion:** Easily convert documents into multiple formats including PDF, Markdown, HTML, Word, and more!
 - **Image Conversion**: Transform images between different formats.
 - **Image Resizing**: Resize an image using the high-quality Lanczos3 algorithm
-- **File Compression/Decompression**: Compress and decompress files with formats like ZIP, TAR.GZ, BZ2, ZST, and LZ4.
+- **File Zip/Unzip**: Zip and unzip files
 - **File Encryption/Decryption**: Securely encrypt and decrypt files using the Age encryption standard.
 - **File Encoding/Decoding**: Securly encode and decode files with base64 and hex
 - **Hash Generation**: Generate a hash for a file with algorithms SHA-256, SHA-1, MD5, BLAKE3
@@ -56,8 +56,8 @@ Conversia supports the following commands:
 
 - `/convert_document`: Convert documents to various formats
 - `/convert_image`: Convert images between formats
-- `/compress`: Compress files into different formats
-- `/decompress`: Decompress a file
+- `/zip`: Compress files into zip
+- `/unzip`: Decompress a file
 - `/encrypt`: Encrypt files securely
 - `/decrypt`: Decrypt encrypted files
 - `/base64_encode`: Encode a file to base64
