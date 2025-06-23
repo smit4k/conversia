@@ -37,12 +37,18 @@ pub async fn base64_encode(
 
     if encoded.len() > 1024 {  // Leave room for embed formatting
         // Send as file attachment instead
+        let encoded_name = if let Some(stem) = std::path::Path::new(&file.filename).file_stem() {
+        stem.to_string_lossy().to_string()
+        } else {
+            file.filename.clone()
+        };
+
         let encoded_bytes = encoded.as_bytes();
         let attachment = serenity::CreateAttachment::bytes(
             encoded_bytes, 
-            format!("{}_encoded.txt", file.filename.trim_end_matches(|c| c == '.' || char::is_alphanumeric(c)))
+            format!("{}_encoded.txt", encoded_name)
         );
-
+        
         let embed = CreateEmbed::new()
             .title("✅ Base64 Encoded")
             .description(format!(
