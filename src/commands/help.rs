@@ -71,6 +71,7 @@ impl HelpPage {
                     .color(0x9B59B6)  // Purple
                     .field("/resize_image", "Resize an image", false)
                     .field("/hash", "Generate a hash for a file.\n• Supports: SHA-256, SHA-1, MD5, BLAKE3", false)
+                    .field("/verify_hash", "Verify a file’s hash against an expected checksum \n• Supports: SHA-256, SHA-1, MD5, BLAKE3", false)
                     .field("/audio_meta", "Extract metadata from MP3 and FLAC files.\n• Shows: title, artist, album, year, genre\n• Works with most MP3 and FLAC files", false)
                     .field("/about", "Learn more about the Conversia bot.\n• Information about the bot\n• Legal information", false)
                     .field("/ping", "Check the bot's latency.\n• Useful for debugging connection issues", false)

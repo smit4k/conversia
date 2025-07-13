@@ -42,6 +42,7 @@ async fn main() {
             commands::about::about(), 
             commands::help::help(),
             commands::hash::hash(),
+            commands::hash::verify_hash(),
             commands::resize::resize_image(),
             compression::compress::zip(),
             compression::decompress::unzip(), 

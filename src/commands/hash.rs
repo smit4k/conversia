@@ -88,3 +88,79 @@ pub async fn hash(
 
     Ok(())
 }
+
+/// Verify a file’s hash against an expected checksum 
+#[poise::command(slash_command)]
+pub async fn verify_hash(
+    ctx: Context<'_>,
+    #[description = "File to verify"] file: Attachment,
+    #[description = "Hash value to compare against"] hash: String,
+    #[description = "Hash algorithm"] algorithm: HashAlgorithm
+) -> Result<(), Error> {
+    ctx.defer().await?;
+
+    let file_data = match file.download().await {
+        Ok(data) => data,
+        Err(e) => {
+            let embed = CreateEmbed::new()
+                .title("❌ Download Failed")
+                .description(format!("Failed to download file: {}", e))
+                .color(0xff4444);
+            
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+    };
+
+
+    let (hash_result, algorithm) = tokio::task::spawn_blocking(move || {
+        match algorithm {
+            HashAlgorithm::Sha256 => {
+                let mut hasher = Sha256::new();
+                hasher.update(&file_data);
+                let result = hasher.finalize();
+                (format!("{:x}", result), "SHA-256")
+            }
+            HashAlgorithm::Sha1 => {
+                let mut hasher = Sha1::new();
+                hasher.update(&file_data);
+                let result = hasher.finalize();
+                (format!("{:x}", result), "SHA-1")
+            }
+            HashAlgorithm::Md5 => {
+                let mut hasher = md5::Context::new();
+                hasher.consume(&file_data);
+                let result = hasher.compute();
+                (format!("{:x}", result), "MD5")
+            }
+            HashAlgorithm::Blake3 => {
+                let hash = blake3::hash(&file_data);
+                (hash.to_hex().to_string(), "BLAKE3")
+            }
+        }
+    })
+    .await
+    .expect("Hashing thread panicked");
+
+    if hash_result == hash {
+        let embed = CreateEmbed::new()
+            .title("✅ Valid Checksum")
+            .field("Expected Hash", format!("```{}```", hash), true)
+            .field("Actual Hash", format!("```{}```", hash_result), true)
+            .footer(serenity::CreateEmbedFooter::new(format!("Algorithm: {}", algorithm)))
+            .color(0x27ae60);
+        ctx.send(poise::CreateReply::default().embed(embed)).await?;
+        Ok(())
+    }
+    else {
+        let embed = CreateEmbed::new()
+            .title("❌ Invalid Checksum")
+            .field("Expected Hash", format!("```{}```", hash), true)
+            .field("Actual Hash", format!("```{}```", hash_result), true)
+            .footer(serenity::CreateEmbedFooter::new(format!("Algorithm: {}", algorithm)))
+            .color(0xff4444);
+        ctx.send(poise::CreateReply::default().embed(embed)).await?;
+        Ok(())
+    }
+    
+}
