@@ -1,4 +1,4 @@
-use dotenv::dotenv;
+use dotenvy::dotenv;
 use poise::{serenity_prelude as serenity};
 use serenity::{gateway::ActivityData, model::user::OnlineStatus};
 
