@@ -1,17 +1,31 @@
-use poise::{serenity_prelude as serenity};
+use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::{Attachment, CreateAttachment};
 use serenity::builder::CreateEmbed;
-use std::fs::File;
+use std::path::Path;
+use tempfile::Builder;
 use zip::ZipArchive;
 use crate::utils::format_file_size;
 use crate::{Context, Error};
-use std::path::Path;
-use tokio::fs;
 
-#[derive(Debug, poise::ChoiceParameter)]
-pub enum DecompressionFormat {
-    #[name = "zip"]
-    Zip,
+/// Extract the first file from a ZIP archive stored in memory.
+/// Returns the original filename from inside the archive (if any).
+async fn extract_first_zip_entry(
+    data: &[u8],
+    output_path: std::path::PathBuf,
+) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+    let data = data.to_vec();
+    tokio::task::spawn_blocking(move || -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+        let cursor = std::io::Cursor::new(data);
+        let mut archive = ZipArchive::new(cursor)?;
+        if archive.len() == 0 {
+            return Err("Empty archive".into());
+        }
+        let mut file = archive.by_index(0)?;
+        let original_name = file.name().to_string();
+        let mut output_file = std::fs::File::create(&output_path)?;
+        std::io::copy(&mut file, &mut output_file)?;
+        Ok(Some(original_name))
+    }).await?
 }
 
 /// Decompress a zipped file
@@ -34,13 +48,21 @@ pub async fn unzip(
         }
     };
 
-    let (output_filename, temp_output_path) = generate_output_paths(&file.filename);
+    let base_name = Path::new(&file.filename)
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
 
-    let result = extract_zip_from_bytes(&file_data, &temp_output_path).await;
+    // Use tempfile for safe, auto-cleaned temporary storage
+    let temp_file = Builder::new()
+        .prefix("conversia_unzip_")
+        .tempfile()?;
+    let temp_path = temp_file.path().to_path_buf();
 
-    match result {
+    match extract_first_zip_entry(&file_data, temp_path.clone()).await {
         Ok(original_filename) => {
-            match fs::read(&temp_output_path).await {
+            match tokio::fs::read(&temp_path).await {
                 Ok(decompressed_data) => {
                     let compressed_size = file_data.len() as f64;
                     let decompressed_size = decompressed_data.len() as f64;
@@ -50,7 +72,7 @@ pub async fn unzip(
                         0.0
                     };
 
-                    let final_filename = original_filename.unwrap_or(output_filename);
+                    let final_filename = original_filename.unwrap_or(base_name);
                     let attachment = CreateAttachment::bytes(decompressed_data, &final_filename);
 
                     let embed = CreateEmbed::new()
@@ -66,7 +88,11 @@ pub async fn unzip(
                         .color(0x27ae60)
                         .footer(serenity::CreateEmbedFooter::new("Format: zip"));
 
-                    ctx.send(poise::CreateReply::default().embed(embed).attachment(attachment)).await?;
+                    ctx.send(
+                        poise::CreateReply::default()
+                            .embed(embed)
+                            .attachment(attachment)
+                    ).await?;
                 }
                 Err(e) => {
                     let embed = CreateEmbed::new()
@@ -76,7 +102,6 @@ pub async fn unzip(
                     ctx.send(poise::CreateReply::default().embed(embed)).await?;
                 }
             }
-            let _ = fs::remove_file(&temp_output_path).await;
         }
         Err(e) => {
             let embed = CreateEmbed::new()
@@ -84,38 +109,9 @@ pub async fn unzip(
                 .description(format!("Failed to decompress file: {}", e))
                 .color(0xff4444);
             ctx.send(poise::CreateReply::default().embed(embed)).await?;
-            let _ = fs::remove_file(&temp_output_path).await;
         }
     }
+    // temp_file is dropped here, automatically cleaning up
+
     Ok(())
-}
-
-fn generate_output_paths(filename: &str) -> (String, String) {
-    let path = Path::new(filename);
-    let base_name = path.file_stem().unwrap_or_default().to_string_lossy();
-    let output_filename = base_name.to_string();
-    let temp_output_path = format!("temp_decompressed_{}", output_filename);
-    (output_filename, temp_output_path)
-}
-
-async fn extract_zip_from_bytes(
-    data: &[u8],
-    output_path: &str,
-) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
-    let data = data.to_vec();
-    let output_path = output_path.to_string();
-    let original_filename = tokio::task::spawn_blocking(move || -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
-        let cursor = std::io::Cursor::new(data);
-        let mut archive = ZipArchive::new(cursor)?;
-        if archive.len() > 0 {
-            let mut file = archive.by_index(0)?;
-            let original_name = file.name().to_string();
-            let mut output_file = File::create(&output_path)?;
-            std::io::copy(&mut file, &mut output_file)?;
-            Ok(Some(original_name))
-        } else {
-            Err("Empty archive".into())
-        }
-    }).await??;
-    Ok(original_filename)
 }

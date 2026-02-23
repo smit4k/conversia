@@ -3,7 +3,6 @@ use poise::serenity_prelude::Attachment;
 use serenity::builder::CreateEmbed;
 use sha2::{Sha256, Digest as Sha2Digest};
 use sha1::Sha1;
-use blake3;
 use crate::utils::format_file_size;
 use crate::{Context, Error};
 
@@ -19,6 +18,47 @@ pub enum HashAlgorithm {
     Blake3,
 }
 
+/// Compute a hash of the given data using the specified algorithm.
+/// Returns the hex-encoded hash string and the algorithm display name.
+fn compute_hash(data: &[u8], algorithm: &HashAlgorithm) -> (String, &'static str) {
+    match algorithm {
+        HashAlgorithm::Sha256 => {
+            let mut hasher = Sha256::new();
+            hasher.update(data);
+            (format!("{:x}", hasher.finalize()), "SHA-256")
+        }
+        HashAlgorithm::Sha1 => {
+            let mut hasher = Sha1::new();
+            hasher.update(data);
+            (format!("{:x}", hasher.finalize()), "SHA-1")
+        }
+        HashAlgorithm::Md5 => {
+            let mut hasher = md5::Context::new();
+            hasher.consume(data);
+            (format!("{:x}", hasher.compute()), "MD5")
+        }
+        HashAlgorithm::Blake3 => {
+            let hash = blake3::hash(data);
+            (hash.to_hex().to_string(), "BLAKE3")
+        }
+    }
+}
+
+/// Download an attachment, returning its bytes or sending an error embed on failure.
+async fn download_file(ctx: Context<'_>, file: &Attachment) -> Result<Option<Vec<u8>>, Error> {
+    match file.download().await {
+        Ok(data) => Ok(Some(data)),
+        Err(e) => {
+            let embed = CreateEmbed::new()
+                .title("❌ Download Failed")
+                .description(format!("Failed to download file: {}", e))
+                .color(0xff4444);
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            Ok(None)
+        }
+    }
+}
+
 /// Generate hash for a file
 #[poise::command(slash_command)]
 pub async fn hash(
@@ -28,51 +68,15 @@ pub async fn hash(
 ) -> Result<(), Error> {
     ctx.defer().await?;
 
-    // Download the file
-    let file_data = match file.download().await {
-        Ok(data) => data,
-        Err(e) => {
-            let embed = CreateEmbed::new()
-                .title("❌ Download Failed")
-                .description(format!("Failed to download file: {}", e))
-                .color(0xff4444);
-            
-            ctx.send(poise::CreateReply::default().embed(embed)).await?;
-            return Ok(());
-        }
+    let file_data = match download_file(ctx, &file).await? {
+        Some(data) => data,
+        None => return Ok(()),
     };
 
     let (hash_result, algorithm_name) = tokio::task::spawn_blocking(move || {
-        match algorithm {
-            HashAlgorithm::Sha256 => {
-                let mut hasher = Sha256::new();
-                hasher.update(&file_data);
-                let result = hasher.finalize();
-                (format!("{:x}", result), "SHA-256")
-            }
-            HashAlgorithm::Sha1 => {
-                let mut hasher = Sha1::new();
-                hasher.update(&file_data);
-                let result = hasher.finalize();
-                (format!("{:x}", result), "SHA-1")
-            }
-            HashAlgorithm::Md5 => {
-                let mut hasher = md5::Context::new();
-                hasher.consume(&file_data);
-                let result = hasher.compute();
-                (format!("{:x}", result), "MD5")
-            }
-            HashAlgorithm::Blake3 => {
-                let hash = blake3::hash(&file_data);
-                (hash.to_hex().to_string(), "BLAKE3")
-            }
-        }
-    })
-    .await
-    .expect("Hashing thread panicked");
+        compute_hash(&file_data, &algorithm)
+    }).await?;
 
-
-    // Create success embed with hash result
     let embed = CreateEmbed::new()
         .title("🔐 File Hash Generated")
         .description(format!(
@@ -85,82 +89,36 @@ pub async fn hash(
         .color(0x27ae60);
 
     ctx.send(poise::CreateReply::default().embed(embed)).await?;
-
     Ok(())
 }
 
-/// Verify a file’s hash against an expected checksum 
+/// Verify a file's hash against an expected checksum
 #[poise::command(slash_command)]
 pub async fn verify_hash(
     ctx: Context<'_>,
     #[description = "File to verify"] file: Attachment,
-    #[description = "Hash value to compare against"] hash: String,
-    #[description = "Hash algorithm"] algorithm: HashAlgorithm
+    #[description = "Hash value to compare against"] expected_hash: String,
+    #[description = "Hash algorithm"] algorithm: HashAlgorithm,
 ) -> Result<(), Error> {
     ctx.defer().await?;
 
-    let file_data = match file.download().await {
-        Ok(data) => data,
-        Err(e) => {
-            let embed = CreateEmbed::new()
-                .title("❌ Download Failed")
-                .description(format!("Failed to download file: {}", e))
-                .color(0xff4444);
-            
-            ctx.send(poise::CreateReply::default().embed(embed)).await?;
-            return Ok(());
-        }
+    let file_data = match download_file(ctx, &file).await? {
+        Some(data) => data,
+        None => return Ok(()),
     };
 
+    let (actual_hash, algorithm_name) = tokio::task::spawn_blocking(move || {
+        compute_hash(&file_data, &algorithm)
+    }).await?;
 
-    let (hash_result, algorithm) = tokio::task::spawn_blocking(move || {
-        match algorithm {
-            HashAlgorithm::Sha256 => {
-                let mut hasher = Sha256::new();
-                hasher.update(&file_data);
-                let result = hasher.finalize();
-                (format!("{:x}", result), "SHA-256")
-            }
-            HashAlgorithm::Sha1 => {
-                let mut hasher = Sha1::new();
-                hasher.update(&file_data);
-                let result = hasher.finalize();
-                (format!("{:x}", result), "SHA-1")
-            }
-            HashAlgorithm::Md5 => {
-                let mut hasher = md5::Context::new();
-                hasher.consume(&file_data);
-                let result = hasher.compute();
-                (format!("{:x}", result), "MD5")
-            }
-            HashAlgorithm::Blake3 => {
-                let hash = blake3::hash(&file_data);
-                (hash.to_hex().to_string(), "BLAKE3")
-            }
-        }
-    })
-    .await
-    .expect("Hashing thread panicked");
+    let matches = actual_hash == expected_hash;
+    let embed = CreateEmbed::new()
+        .title(if matches { "✅ Valid Checksum" } else { "❌ Invalid Checksum" })
+        .field("Expected Hash", format!("```{}```", expected_hash), true)
+        .field("Actual Hash", format!("```{}```", actual_hash), true)
+        .footer(serenity::CreateEmbedFooter::new(format!("Algorithm: {}", algorithm_name)))
+        .color(if matches { 0x27ae60 } else { 0xff4444 });
 
-    if hash_result == hash {
-        let embed = CreateEmbed::new()
-            .title("✅ Valid Checksum")
-            .field("Expected Hash", format!("```{}```", hash), true)
-            .field("Actual Hash", format!("```{}```", hash_result), true)
-            .footer(serenity::CreateEmbedFooter::new(format!("Algorithm: {}", algorithm)))
-            .color(0x27ae60);
-        ctx.send(poise::CreateReply::default().embed(embed)).await?;
-        Ok(())
-    }
-    else {
-        let embed = CreateEmbed::new()
-            .title("❌ Invalid Checksum")
-            .field("Expected Hash", format!("```{}```", hash), true)
-            .field("Actual Hash", format!("```{}```", hash_result), true)
-            .footer(serenity::CreateEmbedFooter::new(format!("Algorithm: {}", algorithm)))
-            .color(0xff4444);
-        ctx.send(poise::CreateReply::default().embed(embed)).await?;
-        Ok(())
-    }
-    
+    ctx.send(poise::CreateReply::default().embed(embed)).await?;
+    Ok(())
 }

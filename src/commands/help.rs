@@ -60,8 +60,8 @@ impl HelpPage {
                     .title("Conversia Help - Compression")
                     .description("Compress files to save space and organize")
                     .color(0xFFD93D)  // Yellow
-                    .field("/compress", "Compress files into various archive formats.\n• Formats: ZIP, TAR.GZ, BZ2, ZST, LZ4", false)
-                    .field("/decompress","Decompress files from archive formats.\n• Formats: ZIP, TAR.GZ, BZ2, ZST, LZ4", false)
+                    .field("/zip", "Compress a file into a ZIP archive.", false)
+                    .field("/unzip", "Decompress a file from a ZIP archive.", false)
                     .footer(serenity::builder::CreateEmbedFooter::new("Choose the format that best fits your needs"))
             }
             HelpPage::Other => {

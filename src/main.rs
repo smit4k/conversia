@@ -1,5 +1,5 @@
 use dotenv::dotenv;
-use poise::{serenity_prelude as serenity};
+use poise::serenity_prelude as serenity;
 use serenity::{gateway::ActivityData, model::user::OnlineStatus};
 
 struct Data {}
@@ -7,75 +7,62 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, Data, Error>;
 
 mod commands;
-mod conversion;
 mod compression;
-mod encryption;
+mod conversion;
 mod encoding;
+mod encryption;
 mod utils;
-
-async fn event_handler(
-    _ctx: &serenity::Context,
-    event: &serenity::FullEvent,
-    _framework: poise::FrameworkContext<'_, Data, Error>,
-    _data: &Data,
-) -> Result<(), Error> {
-    match event {
-        serenity::FullEvent::Ready { data_about_bot, .. } => {
-            println!("Bot is connected as {}", data_about_bot.user.name);
-        }
-        _ => {}
-    }
-    Ok(())
-}
 
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-    
-    let token = std::env::var("discord_token").expect("Token not found");
-    let intents = serenity::GatewayIntents::GUILD_MESSAGES 
+
+    let token = std::env::var("discord_token").expect("Missing 'discord_token' environment variable");
+    let intents = serenity::GatewayIntents::GUILD_MESSAGES
         | serenity::GatewayIntents::MESSAGE_CONTENT;
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![commands::ping::ping(), 
-            commands::about::about(), 
-            commands::help::help(),
-            commands::hash::hash(),
-            commands::hash::verify_hash(),
-            commands::resize::resize_image(),
-            compression::compress::zip(),
-            compression::decompress::unzip(), 
-            commands::metadata::audio_meta(),
-            conversion::document::convert_document(), 
-            conversion::image::convert_image(),
-            encryption::encrypt::encrypt(),
-            encryption::decrypt::decrypt(),
-            encoding::base64::base64_encode(),
-            encoding::base64::base64_decode(),
-            encoding::hex::hex_encode(),
-            encoding::hex::hex_decode(),
-        ],
-
+            commands: vec![
+                // General
+                commands::ping::ping(),
+                commands::about::about(),
+                commands::help::help(),
+                // Hashing
+                commands::hash::hash(),
+                commands::hash::verify_hash(),
+                // Image tools
+                commands::resize::resize_image(),
+                conversion::image::convert_image(),
+                // Document conversion
+                conversion::document::convert_document(),
+                // Compression
+                compression::compress::zip(),
+                compression::decompress::unzip(),
+                // Encryption
+                encryption::encrypt::encrypt(),
+                encryption::decrypt::decrypt(),
+                // Encoding
+                encoding::base64::base64_encode(),
+                encoding::base64::base64_decode(),
+                encoding::hex::hex_encode(),
+                encoding::hex::hex_decode(),
+                // Audio
+                commands::metadata::audio_meta(),
+            ],
             prefix_options: poise::PrefixFrameworkOptions {
                 prefix: Some(".".into()),
                 ..Default::default()
-            },
-            event_handler: |ctx, event, framework, data| {
-                Box::pin(event_handler(ctx, event, framework, data))
             },
             ..Default::default()
         })
         .setup(|ctx, ready, framework| {
             Box::pin(async move {
                 println!("Bot is connected as {}", ready.user.name);
-                
-                // Set bot presence
+
                 let activity = ActivityData::watching("Your uploads");
-                let status = OnlineStatus::Online;
-                ctx.set_presence(Some(activity), status);
-                
-                // Register slash commands globally
+                ctx.set_presence(Some(activity), OnlineStatus::Online);
+
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
                 Ok(Data {})
             })
@@ -86,7 +73,14 @@ async fn main() {
         .framework(framework)
         .await;
 
-    if let Err(err) = client.unwrap().start().await {
-        println!("Client error: {:?}", err);
+    match client {
+        Ok(mut client) => {
+            if let Err(err) = client.start().await {
+                eprintln!("Client runtime error: {:?}", err);
+            }
+        }
+        Err(err) => {
+            eprintln!("Failed to create client: {:?}", err);
+        }
     }
 }

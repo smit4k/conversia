@@ -1,26 +1,19 @@
-use poise::{serenity_prelude as serenity};
+use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::{Attachment, CreateAttachment};
 use serenity::builder::CreateEmbed;
 use std::fs::File;
 use std::io::Write;
+use std::path::Path;
+use tempfile::Builder;
 use zip::{ZipWriter, CompressionMethod};
 use crate::utils::format_file_size;
 use crate::{Context, Error};
-use std::path::Path;
-use tokio::fs;
 
-#[derive(Debug, poise::ChoiceParameter)]
-pub enum CompressionFormat {
-    #[name = "zip"]
-    Zip,
-}
-
-/// Strip all extensions from a file
+/// Strip all extensions from a filename, returning only the stem.
 fn strip_all_extensions(filename: &str) -> String {
     let mut stem = filename.to_string();
     loop {
-        let new_stem = Path::new(&stem).file_stem();
-        match new_stem {
+        match Path::new(&stem).file_stem() {
             Some(s) => {
                 let s_str = s.to_string_lossy().to_string();
                 if s_str == stem {
@@ -32,6 +25,23 @@ fn strip_all_extensions(filename: &str) -> String {
         }
     }
     stem
+}
+
+/// Create a ZIP archive containing the given data as a single file.
+fn create_zip_archive(
+    internal_filename: &str,
+    data: &[u8],
+    output_path: &Path,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let file = File::create(output_path)?;
+    let mut zip = ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(CompressionMethod::Deflated)
+        .unix_permissions(0o755);
+    zip.start_file(internal_filename, options)?;
+    zip.write_all(data)?;
+    zip.finish()?;
+    Ok(())
 }
 
 /// Compress a file into a zip archive
@@ -57,19 +67,21 @@ pub async fn zip(
     let original_name = Path::new(&file.filename)
         .file_stem()
         .unwrap_or_default()
-        .to_string_lossy();
-
+        .to_string_lossy()
+        .to_string();
     let output_filename = format!("{}.zip", original_name);
-    let temp_output_path = format!("temp_compressed_{}.zip", original_name);
-
-    // Clean internal filename: strip all extensions so inside zip archive file is clean
     let internal_filename = strip_all_extensions(&file.filename);
 
-    let result = create_zip_from_bytes(&internal_filename, &file_data, &temp_output_path).await;
+    // Use tempfile for safe, auto-cleaned temporary storage
+    let temp_file = Builder::new()
+        .prefix("conversia_zip_")
+        .suffix(".zip")
+        .tempfile()?;
+    let temp_path = temp_file.path().to_path_buf();
 
-    match result {
+    match create_zip_archive(&internal_filename, &file_data, &temp_path) {
         Ok(()) => {
-            match fs::read(&temp_output_path).await {
+            match tokio::fs::read(&temp_path).await {
                 Ok(compressed_data) => {
                     let original_size = file_data.len() as f64;
                     let compressed_size = compressed_data.len() as f64;
@@ -104,7 +116,6 @@ pub async fn zip(
                     ctx.send(poise::CreateReply::default().embed(embed)).await?;
                 }
             }
-            let _ = fs::remove_file(&temp_output_path).await;
         }
         Err(e) => {
             let embed = CreateEmbed::new()
@@ -112,25 +123,9 @@ pub async fn zip(
                 .description(format!("Failed to compress file: {}", e))
                 .color(0xff4444);
             ctx.send(poise::CreateReply::default().embed(embed)).await?;
-            let _ = fs::remove_file(&temp_output_path).await;
         }
     }
+    // temp_file is dropped here, automatically cleaning up
 
-    Ok(())
-}
-
-async fn create_zip_from_bytes(
-    filename: &str,
-    data: &[u8],
-    zip_path: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let file = File::create(zip_path)?;
-    let mut zip = ZipWriter::new(file);
-    let options = zip::write::SimpleFileOptions::default()
-        .compression_method(CompressionMethod::Deflated)
-        .unix_permissions(0o755);
-    zip.start_file(filename, options)?;
-    zip.write_all(data)?;
-    zip.finish()?;
     Ok(())
 }

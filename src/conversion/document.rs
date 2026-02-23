@@ -110,6 +110,8 @@ pub async fn convert_document(
     #[description = "Document to convert"] file: Attachment,
     #[description = "Document format to convert to"] output_format: OutputFormat,
 ) -> Result<(), Error> {
+    ctx.defer().await?;
+
     match convert_document_inner(&file, output_format).await {
         Ok((converted_data, output_filename)) => {
             let attachment = CreateAttachment::bytes(converted_data, &output_filename);
