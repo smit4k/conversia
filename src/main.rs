@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 use dotenv::dotenv;
 use poise::serenity_prelude as serenity;
+=======
+use dotenvy::dotenv;
+use poise::{serenity_prelude as serenity};
+>>>>>>> refs/remotes/origin/master
 use serenity::{gateway::ActivityData, model::user::OnlineStatus};
 
 struct Data {}

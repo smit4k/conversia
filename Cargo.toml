@@ -7,7 +7,7 @@ edition = "2024"
 serenity = { version = "0.12", features = ["client", "gateway", "model", "standard_framework"] }
 poise = "0.6.1"
 tokio = { version = "1", features = ["fs", "macros", "rt-multi-thread"] }
-dotenv = "0.15"
+dotenvy = "0.15.7"
 tempfile = "3.6"
 image = "0.24"
 zip = "4.0.0"
