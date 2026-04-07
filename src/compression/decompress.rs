@@ -20,6 +20,9 @@ async fn extract_first_zip_entry(
         if archive.len() == 0 {
             return Err("Empty archive".into());
         }
+        if archive.len() > 1 {
+            return Err("This ZIP archive contains multiple files. Conversia currently extracts only single-file ZIP archives.".into());
+        }
         let mut file = archive.by_index(0)?;
         let original_name = file.name().to_string();
         let mut output_file = std::fs::File::create(&output_path)?;

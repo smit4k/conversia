@@ -6,6 +6,13 @@ use serenity::builder::CreateEmbed;
 use secrecy::SecretString;
 use crate::{Context, Error};
 
+fn decrypt_error_embed(message: impl Into<String>) -> CreateEmbed {
+    CreateEmbed::new()
+        .title("❌ Decryption Failed")
+        .description(message.into())
+        .color(0xff4444)
+}
+
 /// Decrypt a file using age (ChaCha20-Poly1305)
 #[poise::command(slash_command, ephemeral)]
 pub async fn decrypt(
@@ -20,19 +27,30 @@ pub async fn decrypt(
     let temp_path = temp_dir.path().to_path_buf();
 
     // Download the attached file
-    let file_data = file.download().await?;
+    let file_data = match file.download().await {
+        Ok(data) => data,
+        Err(_) => {
+            let embed = decrypt_error_embed("Failed to download the attached file.");
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+    };
     let filename = file.filename.clone();
 
     // Write file to temp directory
     let input_file_path = temp_path.join(&filename);
-    fs::write(&input_file_path, &file_data).await?;
+    if fs::write(&input_file_path, &file_data).await.is_err() {
+        let embed = decrypt_error_embed("Failed to prepare the file for decryption.");
+        ctx.send(poise::CreateReply::default().embed(embed)).await?;
+        return Ok(());
+    }
 
     // Create original filename by removing .age suffix
     let original_filename = filename.strip_suffix(".age").unwrap_or(&filename).to_string();
     let original_filename_clone = original_filename.clone();
 
     // Move heavy lifting to blocking task
-    let decrypted_data = tokio::task::spawn_blocking(move || -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    let decrypted_data = match tokio::task::spawn_blocking(move || -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
         let output_file_path = temp_path.join(&original_filename_clone);
 
         let input_file = std::fs::File::open(&input_file_path)?;
@@ -51,7 +69,21 @@ pub async fn decrypt(
 
         let decrypted_data = std::fs::read(&output_file_path)?;
         Ok(decrypted_data)
-    }).await??;
+    }).await {
+        Ok(Ok(data)) => data,
+        Ok(Err(_)) => {
+            let embed = decrypt_error_embed(
+                "Unable to decrypt this file. Check that the file is age-encrypted and that the password is correct.",
+            );
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+        Err(_) => {
+            let embed = decrypt_error_embed("The decryption task stopped unexpectedly.");
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+    };
 
     let attachment = CreateAttachment::bytes(decrypted_data, &original_filename);
 

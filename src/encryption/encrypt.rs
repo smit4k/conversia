@@ -6,6 +6,13 @@ use serenity::builder::CreateEmbed;
 use secrecy::SecretString;
 use crate::{Context, Error};
 
+fn encrypt_error_embed(message: impl Into<String>) -> CreateEmbed {
+    CreateEmbed::new()
+        .title("❌ Encryption Failed")
+        .description(message.into())
+        .color(0xff4444)
+}
+
 /// Encrypt a file using age (ChaCha20-Poly1305)
 #[poise::command(slash_command, ephemeral)]
 pub async fn encrypt(
@@ -15,21 +22,31 @@ pub async fn encrypt(
 ) -> Result<(), Error> {
     ctx.defer().await?;
 
-    let password_clone = password.clone();
     // Create temporary directory for file operations
     let temp_dir = Builder::new().prefix("encrypt_").tempdir()?;
     let temp_path = temp_dir.path().to_path_buf();
     
     // Download the attached file
-    let file_data = file.download().await?;
+    let file_data = match file.download().await {
+        Ok(data) => data,
+        Err(_) => {
+            let embed = encrypt_error_embed("Failed to download the attached file.");
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+    };
     let filename = file.filename.clone();
     
     // Write file to temp directory
     let input_file_path = temp_path.join(&filename);
-    fs::write(&input_file_path, &file_data).await?;
+    if fs::write(&input_file_path, &file_data).await.is_err() {
+        let embed = encrypt_error_embed("Failed to prepare the file for encryption.");
+        ctx.send(poise::CreateReply::default().embed(embed)).await?;
+        return Ok(());
+    }
     
     // Move heavy lifting to blocking task
-    let encrypted_data = tokio::task::spawn_blocking(move || -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+    let encrypted_data = match tokio::task::spawn_blocking(move || -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
         // Create output file path
         let output_file_path = temp_path.join(format!("{}.age", filename));
         
@@ -54,9 +71,21 @@ pub async fn encrypt(
         
         // Read encrypted file
         let encrypted_data = std::fs::read(&output_file_path)?;
-        
+
         Ok(encrypted_data)
-    }).await??;
+    }).await {
+        Ok(Ok(data)) => data,
+        Ok(Err(_)) => {
+            let embed = encrypt_error_embed("Unable to encrypt this file. Please verify the input and try again.");
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+        Err(_) => {
+            let embed = encrypt_error_embed("The encryption task stopped unexpectedly.");
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+    };
     
     let encrypted_filename = format!("{}.age", file.filename);
     
@@ -67,10 +96,9 @@ pub async fn encrypt(
     let embed = CreateEmbed::new()
         .title("✅ File Encrypted Successfully")
         .description(format!(
-            "Original file: `{}`\nEncrypted file: `{}`\n**Save your password!** You'll need it to decrypt the file.",
+            "Original file: `{}`\nEncrypted file: `{}`\nKeep your password safe. It is required to decrypt the file later.",
             file.filename, encrypted_filename
         ))
-        .field("Password", format!("||{}||", password_clone), false)
         .field("Encryption Method", "Age (ChaCha20-Poly1305)", true)
         .color(0x27ae60);
     

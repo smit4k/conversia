@@ -61,8 +61,8 @@ impl HelpPage {
                     .description("Compress files to save space and organize")
                     .color(0xFFD93D)  // Yellow
                     .field("/zip", "Compress a file into a ZIP archive.", false)
-                    .field("/unzip", "Decompress a file from a ZIP archive.", false)
-                    .footer(serenity::builder::CreateEmbedFooter::new("Choose the format that best fits your needs"))
+                    .field("/unzip", "Extract a single file from a ZIP archive.\n• Multi-file ZIPs are currently rejected", false)
+                    .footer(serenity::builder::CreateEmbedFooter::new("ZIP extraction currently supports single-file archives"))
             }
             HelpPage::Other => {
                 serenity::builder::CreateEmbed::default()
@@ -113,11 +113,7 @@ impl HelpPage {
         buttons.push(
             CreateButton::new_link("https://github.com/smit4k/conversia/issues")
                 .label("Report Bug")
-                .emoji(serenity::model::prelude::ReactionType::Custom {
-                    animated: false,
-                    id: serenity::model::prelude::EmojiId::new(1382099046654677073),
-                    name: Some("github_white".to_string()),
-                })
+                .emoji('🔗')
         );
 
         buttons

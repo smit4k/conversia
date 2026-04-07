@@ -6,6 +6,13 @@ use resize::{Pixel::RGBA8, Type, Resizer};
 use rgb::RGBA;
 use crate::{Context, Error};
 
+fn resize_error_embed(title: &str, message: &str) -> CreateEmbed {
+    CreateEmbed::default()
+        .title(title)
+        .description(message)
+        .color(0xff4444)
+}
+
 /// Resize an image
 #[poise::command(slash_command)]
 pub async fn resize_image(
@@ -26,18 +33,20 @@ pub async fn resize_image(
         return Ok(());
     }
     
-    let bytes = attachment.download().await.map_err(|e| {
-        let embed = CreateEmbed::default()
-            .title("❌ Download Failed")
-            .description("Failed to download the attached file.")
-            .color(0xff4444);
-        let _ = ctx.send(poise::CreateReply::default().embed(embed));
-        e
-    })?;
-    
-    let (output_bytes, original_width, original_height, original_extension) = tokio::task::spawn_blocking(move || {
+    let bytes = match attachment.download().await {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            let embed = resize_error_embed("❌ Download Failed", "Failed to download the attached file.");
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+    };
+
+    let original_filename = attachment.filename.clone();
+    let (output_bytes, original_width, original_height, original_extension) = match tokio::task::spawn_blocking(move || -> Result<(Vec<u8>, u32, u32, String), Error> {
         // Load image
-        let src_image = load_from_memory(&bytes).map_err(|_| "Invalid image format")?;
+        let src_image = load_from_memory(&bytes)
+            .map_err(|_| Error::from("Invalid image format. Please upload a supported image file."))?;
         let original_width = src_image.width();
         let original_height = src_image.height();
         let rgba = src_image.to_rgba8();
@@ -65,9 +74,11 @@ pub async fn resize_image(
             height as usize,
             RGBA8,
             resize_type,
-        ).map_err(|_| "Failed to create resizer")?;
+        ).map_err(|_| Error::from("Failed to initialize the image resizer."))?;
         
-        resizer.resize(&src_pixels[..], &mut dst_pixels[..]).map_err(|_| "Resize failed")?;
+        resizer
+            .resize(&src_pixels[..], &mut dst_pixels[..])
+            .map_err(|_| Error::from("Image resizing failed."))?;
         
         // Convert back to raw bytes
         let dst_bytes: Vec<u8> = dst_pixels
@@ -75,10 +86,10 @@ pub async fn resize_image(
             .flat_map(|pixel| vec![pixel.r, pixel.g, pixel.b, pixel.a])
             .collect();
         
-        let resized = RgbaImage::from_raw(width, height, dst_bytes).ok_or("Failed to build image")?;
+        let resized = RgbaImage::from_raw(width, height, dst_bytes)
+            .ok_or_else(|| Error::from("Failed to rebuild the resized image."))?;
         
-        let ext = attachment
-            .filename
+        let ext = original_filename
             .rsplit('.')
             .next()
             .unwrap_or("png")
@@ -100,10 +111,24 @@ pub async fn resize_image(
         };
         
         let mut buffer = Cursor::new(Vec::new());
-        dyn_img.write_to(&mut buffer, format).map_err(|_| "Encoding failed")?;
+        dyn_img
+            .write_to(&mut buffer, format)
+            .map_err(|_| Error::from("Failed to encode the resized image."))?;
         
-        Ok::<_, &str>((buffer.into_inner(), original_width, original_height, ext))
-    }).await.unwrap_or_else(|_| Err("Resize task panicked"))?;
+        Ok((buffer.into_inner(), original_width, original_height, ext))
+    }).await {
+        Ok(Ok(result)) => result,
+        Ok(Err(err)) => {
+            let embed = resize_error_embed("❌ Resize Failed", &err.to_string());
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+        Err(_) => {
+            let embed = resize_error_embed("❌ Resize Failed", "The resize task stopped unexpectedly.");
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+    };
     
     // Prepare response
     let filename = format!("resized_{}x{}.{}", width, height, original_extension);

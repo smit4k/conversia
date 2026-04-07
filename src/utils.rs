@@ -1,3 +1,5 @@
+use std::path::Path;
+
 /// Format file size in bytes to the most readable format
 pub fn format_file_size(bytes: u64) -> String {
     const UNITS: &[&str] = &["bytes", "KB", "MB", "GB", "TB"];
@@ -20,6 +22,28 @@ pub fn format_file_size(bytes: u64) -> String {
     } else {
         format!("{:.2} {}", size, UNITS[unit_index])
     }
+}
+
+/// Extract a display-safe file stem while preserving multi-dot names.
+pub fn file_stem(filename: &str) -> String {
+    Path::new(filename)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .filter(|stem| !stem.is_empty())
+        .unwrap_or(filename)
+        .to_string()
+}
+
+/// Determine whether bytes are safe to preview as text in Discord.
+pub fn is_previewable_text(data: &[u8]) -> bool {
+    let Ok(text) = std::str::from_utf8(data) else {
+        return false;
+    };
+
+    !text.is_empty()
+        && text
+            .chars()
+            .all(|ch| ch == '\n' || ch == '\r' || ch == '\t' || !ch.is_control())
 }
 
 // Helper function to detect file type from magic bytes
@@ -55,5 +79,35 @@ pub fn detect_file_type(data: &[u8]) -> String {
                 "decoded_data.bin".to_string()
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{detect_file_type, file_stem, format_file_size, is_previewable_text};
+
+    #[test]
+    fn file_stem_preserves_multi_dot_names() {
+        assert_eq!(file_stem("example.v1.docx"), "example.v1");
+        assert_eq!(file_stem("archive"), "archive");
+    }
+
+    #[test]
+    fn previewable_text_rejects_binary() {
+        assert!(is_previewable_text(b"hello\nworld"));
+        assert!(!is_previewable_text(&[0, 159, 146, 150]));
+        assert!(!is_previewable_text(&[0, 1, 2, 3]));
+    }
+
+    #[test]
+    fn file_size_formats_zero_and_kibibytes() {
+        assert_eq!(format_file_size(0), "0 B");
+        assert_eq!(format_file_size(1024), "1.00 KB");
+    }
+
+    #[test]
+    fn detect_file_type_handles_common_cases() {
+        assert_eq!(detect_file_type(b"%PDF-sample"), "decoded_document.pdf");
+        assert_eq!(detect_file_type(b"plain text"), "decoded_text.txt");
     }
 }
