@@ -1,8 +1,8 @@
-use tempfile::Builder;
-use tokio::fs;
+use pandoc;
 use poise::serenity_prelude::{Attachment, CreateAttachment};
 use serenity::builder::CreateEmbed;
-use pandoc;
+use tempfile::Builder;
+use tokio::fs;
 
 use crate::utils::file_stem;
 use crate::{Context, Error};
@@ -90,11 +90,14 @@ fn document_error_message(error: &str, output_format: OutputFormat) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{document_error_message, output_filename, OutputFormat};
+    use super::{OutputFormat, document_error_message, output_filename};
 
     #[test]
     fn output_filename_preserves_multi_dot_stem() {
-        assert_eq!(output_filename("draft.v2.docx", OutputFormat::Pdf), "draft.v2.pdf");
+        assert_eq!(
+            output_filename("draft.v2.docx", OutputFormat::Pdf),
+            "draft.v2.pdf"
+        );
         assert_eq!(output_filename("notes", OutputFormat::Markdown), "notes.md");
     }
 
@@ -119,8 +122,13 @@ pub async fn convert_document_inner(
         .map_err(|e| Error::from(format!("Failed to create temporary file: {}", e)))?;
     let input_path = input_temp_file.path().to_path_buf();
 
-    let file_data = file.download().await.map_err(|e| Error::from(format!("Failed to download file: {}", e)))?;
-    fs::write(&input_path, file_data).await.map_err(|e| Error::from(format!("Failed to write file: {}", e)))?;
+    let file_data = file
+        .download()
+        .await
+        .map_err(|e| Error::from(format!("Failed to download file: {}", e)))?;
+    fs::write(&input_path, file_data)
+        .await
+        .map_err(|e| Error::from(format!("Failed to write file: {}", e)))?;
 
     let output_temp_file = Builder::new()
         .suffix(&format!(".{}", output_format.extension()))
@@ -139,9 +147,13 @@ pub async fn convert_document_inner(
 
         pandoc.set_output_format(output_format_clone.pandoc_output_format(), Vec::new());
         pandoc.execute()
-    }).await.map_err(|e| Error::from(format!("Task failed: {}", e)))??;
+    })
+    .await
+    .map_err(|e| Error::from(format!("Task failed: {}", e)))??;
 
-    let converted_data = fs::read(&output_path).await.map_err(|e| Error::from(format!("Failed to read converted file: {}", e)))?;
+    let converted_data = fs::read(&output_path)
+        .await
+        .map_err(|e| Error::from(format!("Failed to read converted file: {}", e)))?;
     let output_filename = output_filename(&file.filename, output_format);
 
     // Return converted bytes and output filename
@@ -161,8 +173,7 @@ pub async fn convert_document(
         Ok((converted_data, output_filename)) => {
             let attachment = CreateAttachment::bytes(converted_data, &output_filename);
 
-            let reply = poise::CreateReply::default()
-                .attachment(attachment);
+            let reply = poise::CreateReply::default().attachment(attachment);
 
             ctx.send(reply).await?;
         }

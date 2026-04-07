@@ -1,8 +1,8 @@
-use std::io::Cursor;
-use serenity::all::{Attachment, CreateEmbed};
-use poise::serenity_prelude::CreateAttachment;
-use image::{DynamicImage, ImageOutputFormat};
 use crate::{Context, Error};
+use image::{DynamicImage, ImageOutputFormat};
+use poise::serenity_prelude::CreateAttachment;
+use serenity::all::{Attachment, CreateEmbed};
+use std::io::Cursor;
 
 #[derive(Debug, Clone, Copy, poise::ChoiceParameter)]
 pub enum OutputFormat {
@@ -74,12 +74,12 @@ fn optimize_image_for_format(img: DynamicImage, format: OutputFormat) -> Dynamic
 fn estimate_output_size(img: &DynamicImage, format: OutputFormat) -> usize {
     let pixel_count = (img.width() * img.height()) as usize;
     match format {
-        OutputFormat::Jpg => pixel_count / 4,      // ~25% of raw size for JPEG
-        OutputFormat::Png => pixel_count * 2,      // ~200% for PNG (conservative)
-        OutputFormat::Webp => pixel_count / 3,     // ~33% for WebP
-        OutputFormat::Bmp => pixel_count * 3,      // ~300% for BMP (uncompressed)
-        OutputFormat::Gif => pixel_count,          // ~100% for GIF
-        OutputFormat::Tiff => pixel_count * 2,     // ~200% for TIFF
+        OutputFormat::Jpg => pixel_count / 4, // ~25% of raw size for JPEG
+        OutputFormat::Png => pixel_count * 2, // ~200% for PNG (conservative)
+        OutputFormat::Webp => pixel_count / 3, // ~33% for WebP
+        OutputFormat::Bmp => pixel_count * 3, // ~300% for BMP (uncompressed)
+        OutputFormat::Gif => pixel_count,     // ~100% for GIF
+        OutputFormat::Tiff => pixel_count * 2, // ~200% for TIFF
     }
 }
 
@@ -118,12 +118,12 @@ pub async fn convert_image_inner(
         // Pre-allocate buffer with estimated size
         let estimated_size = estimate_output_size(&optimized_img, output_format);
         let mut buf = Cursor::new(Vec::with_capacity(estimated_size));
-        
+
         let image_format = output_format.to_image_format();
         optimized_img
             .write_to(&mut buf, image_format)
             .map_err(|e| Error::from(format!("Failed to encode image: {}", e)))?;
-        
+
         Ok::<Vec<u8>, Error>(buf.into_inner())
     })
     .await
@@ -148,8 +148,7 @@ pub async fn convert_image(
         Ok((converted_bytes, output_filename)) => {
             let attachment = CreateAttachment::bytes(converted_bytes, &output_filename);
 
-            let reply = poise::CreateReply::default()
-                .attachment(attachment);
+            let reply = poise::CreateReply::default().attachment(attachment);
 
             ctx.send(reply).await?;
         }

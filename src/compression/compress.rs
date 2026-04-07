@@ -1,3 +1,5 @@
+use crate::utils::format_file_size;
+use crate::{Context, Error};
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::{Attachment, CreateAttachment};
 use serenity::builder::CreateEmbed;
@@ -5,9 +7,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use tempfile::Builder;
-use zip::{ZipWriter, CompressionMethod};
-use crate::utils::format_file_size;
-use crate::{Context, Error};
+use zip::{CompressionMethod, ZipWriter};
 
 /// Strip all extensions from a filename, returning only the stem.
 fn strip_all_extensions(filename: &str) -> String {
@@ -80,43 +80,42 @@ pub async fn zip(
     let temp_path = temp_file.path().to_path_buf();
 
     match create_zip_archive(&internal_filename, &file_data, &temp_path) {
-        Ok(()) => {
-            match tokio::fs::read(&temp_path).await {
-                Ok(compressed_data) => {
-                    let original_size = file_data.len() as f64;
-                    let compressed_size = compressed_data.len() as f64;
-                    let ratio = ((original_size - compressed_size) / original_size * 100.0).max(0.0);
+        Ok(()) => match tokio::fs::read(&temp_path).await {
+            Ok(compressed_data) => {
+                let original_size = file_data.len() as f64;
+                let compressed_size = compressed_data.len() as f64;
+                let ratio = ((original_size - compressed_size) / original_size * 100.0).max(0.0);
 
-                    let attachment = CreateAttachment::bytes(compressed_data, &output_filename);
+                let attachment = CreateAttachment::bytes(compressed_data, &output_filename);
 
-                    let embed = CreateEmbed::new()
-                        .title("✅ Compression Complete")
-                        .description(format!(
-                            "**Original:** `{}` ({})\n**Compressed:** `{}` ({})\n**Saved:** {:.1}%",
-                            file.filename,
-                            format_file_size(file_data.len() as u64),
-                            output_filename,
-                            format_file_size(compressed_size as u64),
-                            ratio
-                        ))
-                        .color(0x27ae60)
-                        .footer(serenity::CreateEmbedFooter::new("Format: zip"));
+                let embed = CreateEmbed::new()
+                    .title("✅ Compression Complete")
+                    .description(format!(
+                        "**Original:** `{}` ({})\n**Compressed:** `{}` ({})\n**Saved:** {:.1}%",
+                        file.filename,
+                        format_file_size(file_data.len() as u64),
+                        output_filename,
+                        format_file_size(compressed_size as u64),
+                        ratio
+                    ))
+                    .color(0x27ae60)
+                    .footer(serenity::CreateEmbedFooter::new("Format: zip"));
 
-                    ctx.send(
-                        poise::CreateReply::default()
-                            .embed(embed)
-                            .attachment(attachment)
-                    ).await?;
-                }
-                Err(e) => {
-                    let embed = CreateEmbed::new()
-                        .title("❌ File Read Error")
-                        .description(format!("Failed to read compressed file: {}", e))
-                        .color(0xff4444);
-                    ctx.send(poise::CreateReply::default().embed(embed)).await?;
-                }
+                ctx.send(
+                    poise::CreateReply::default()
+                        .embed(embed)
+                        .attachment(attachment),
+                )
+                .await?;
             }
-        }
+            Err(e) => {
+                let embed = CreateEmbed::new()
+                    .title("❌ File Read Error")
+                    .description(format!("Failed to read compressed file: {}", e))
+                    .color(0xff4444);
+                ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            }
+        },
         Err(e) => {
             let embed = CreateEmbed::new()
                 .title("❌ Compression Failed")

@@ -1,6 +1,6 @@
-use poise::{serenity_prelude as serenity};
-use ::serenity::{all::{CreateActionRow, CreateButton, ButtonStyle}};
 use crate::{Context, Error};
+use ::serenity::all::{ButtonStyle, CreateActionRow, CreateButton};
+use poise::serenity_prelude as serenity;
 
 #[derive(Clone, Copy)]
 enum HelpPage {
@@ -13,18 +13,50 @@ enum HelpPage {
 }
 
 impl HelpPage {
+    fn from_custom_id(custom_id: &str) -> Option<Self> {
+        match custom_id {
+            "help_overview" => Some(Self::Overview),
+            "help_conversion" => Some(Self::Conversion),
+            "help_encryption" => Some(Self::Encryption),
+            "help_encoding" => Some(Self::Encoding),
+            "help_compression" => Some(Self::Compression),
+            "help_other" => Some(Self::Other),
+            _ => None,
+        }
+    }
+
     fn create_embed(&self) -> serenity::builder::CreateEmbed {
         match self {
             HelpPage::Overview => {
                 serenity::builder::CreateEmbed::default()
                     .title("Conversia Help - Overview")
-                    .description("Welcome to Conversia! A powerful file conversion and utility bot.")
-                    .color(0x5865F2)  // Discord blurple
-                    .field("📄 Conversion", "Convert documents and images between formats", false)
-                    .field("🔒 Encryption", "Secure your files with encryption/decryption", false)
-                    .field("📦 Compression", "Compress files into various archive formats", false)
-                    .field("🛠️ Other Tools", "Additional utilities like metadata extraction", false)
-                    .footer(serenity::builder::CreateEmbedFooter::new("Use the buttons below to explore each category"))
+                    .description(
+                        "Welcome to Conversia! A powerful file conversion and utility bot.",
+                    )
+                    .color(0x5865F2) // Discord blurple
+                    .field(
+                        "📄 Conversion",
+                        "Convert documents and images between formats",
+                        false,
+                    )
+                    .field(
+                        "🔒 Encryption",
+                        "Secure your files with encryption/decryption",
+                        false,
+                    )
+                    .field(
+                        "📦 Compression",
+                        "Compress files into various archive formats",
+                        false,
+                    )
+                    .field(
+                        "🛠️ Other Tools",
+                        "Additional utilities like metadata extraction",
+                        false,
+                    )
+                    .footer(serenity::builder::CreateEmbedFooter::new(
+                        "Use the buttons below to explore each category",
+                    ))
             }
             HelpPage::Conversion => {
                 serenity::builder::CreateEmbed::default()
@@ -48,12 +80,14 @@ impl HelpPage {
                 serenity::builder::CreateEmbed::default()
                     .title("Conversia Help - Encoding")
                     .description("Encode files to different formats")
-                    .color(0x3498DB)  // Blue
+                    .color(0x3498DB) // Blue
                     .field("/base64_encode", "Encode a file to Base64 format.", false)
                     .field("/base64_decode", "Decode a Base64-encoded file.", false)
                     .field("/hex_encode", "Encode a file to Hex format.", false)
                     .field("/hex_decode", "Decode a Hex-encoded file.", false)
-                    .footer(serenity::builder::CreateEmbedFooter::new("Encoding is useful for data transfer and storage"))
+                    .footer(serenity::builder::CreateEmbedFooter::new(
+                        "Encoding is useful for data transfer and storage",
+                    ))
             }
             HelpPage::Compression => {
                 serenity::builder::CreateEmbed::default()
@@ -85,27 +119,51 @@ impl HelpPage {
         let mut buttons = vec![
             CreateButton::new("help_overview")
                 .label("Overview")
-                .style(if matches!(self, HelpPage::Overview) { ButtonStyle::Primary } else { ButtonStyle::Secondary })
+                .style(if matches!(self, HelpPage::Overview) {
+                    ButtonStyle::Primary
+                } else {
+                    ButtonStyle::Secondary
+                })
                 .emoji('🏠'),
             CreateButton::new("help_conversion")
                 .label("Conversion")
-                .style(if matches!(self, HelpPage::Conversion) { ButtonStyle::Primary } else { ButtonStyle::Secondary })
+                .style(if matches!(self, HelpPage::Conversion) {
+                    ButtonStyle::Primary
+                } else {
+                    ButtonStyle::Secondary
+                })
                 .emoji('📄'),
             CreateButton::new("help_encryption")
                 .label("Encryption")
-                .style(if matches!(self, HelpPage::Encryption) { ButtonStyle::Primary } else { ButtonStyle::Secondary })
+                .style(if matches!(self, HelpPage::Encryption) {
+                    ButtonStyle::Primary
+                } else {
+                    ButtonStyle::Secondary
+                })
                 .emoji('🔒'),
             CreateButton::new("help_encoding")
                 .label("Encoding")
-                .style(if matches!(self, HelpPage::Encoding) { ButtonStyle::Primary } else { ButtonStyle::Secondary })
+                .style(if matches!(self, HelpPage::Encoding) {
+                    ButtonStyle::Primary
+                } else {
+                    ButtonStyle::Secondary
+                })
                 .emoji('🔤'),
             CreateButton::new("help_compression")
                 .label("Compression")
-                .style(if matches!(self, HelpPage::Compression) { ButtonStyle::Primary } else { ButtonStyle::Secondary })
+                .style(if matches!(self, HelpPage::Compression) {
+                    ButtonStyle::Primary
+                } else {
+                    ButtonStyle::Secondary
+                })
                 .emoji('📦'),
             CreateButton::new("help_other")
                 .label("Other")
-                .style(if matches!(self, HelpPage::Other) { ButtonStyle::Primary } else { ButtonStyle::Secondary })
+                .style(if matches!(self, HelpPage::Other) {
+                    ButtonStyle::Primary
+                } else {
+                    ButtonStyle::Secondary
+                })
                 .emoji('🛠'),
         ];
 
@@ -113,35 +171,35 @@ impl HelpPage {
         buttons.push(
             CreateButton::new_link("https://github.com/smit4k/conversia/issues")
                 .label("Report Bug")
-                .emoji('🔗')
+                .emoji('🔗'),
         );
 
         buttons
     }
 }
 
+fn help_action_rows(buttons: Vec<CreateButton>) -> Vec<CreateActionRow> {
+    if buttons.len() <= 5 {
+        vec![CreateActionRow::Buttons(buttons)]
+    } else {
+        let (first_row, second_row) = buttons.split_at(5);
+        vec![
+            CreateActionRow::Buttons(first_row.to_vec()),
+            CreateActionRow::Buttons(second_row.to_vec()),
+        ]
+    }
+}
+
+fn help_response(page: HelpPage) -> poise::CreateReply {
+    poise::CreateReply::default()
+        .embed(page.create_embed())
+        .components(help_action_rows(page.create_buttons()))
+}
+
 /// Shows all commands available
 #[poise::command(slash_command, prefix_command)]
 pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
-    let current_page = HelpPage::Overview;
-    let embed = current_page.create_embed();
-    let buttons = current_page.create_buttons();
-    
-    // Split buttons into rows (Discord limits 5 buttons per row)
-    let action_rows = if buttons.len() <= 5 {
-        vec![CreateActionRow::Buttons(buttons)]
-    } else {
-        vec![
-            CreateActionRow::Buttons(buttons[..5].to_vec()),
-            CreateActionRow::Buttons(buttons[5..].to_vec()),
-        ]
-    };
-
-    let reply = poise::CreateReply::default()
-        .embed(embed)
-        .components(action_rows);
-
-    let message = ctx.send(reply).await?;
+    let message = ctx.send(help_response(HelpPage::Overview)).await?;
 
     // Handle button interactions
     let message = message.into_message().await?;
@@ -154,35 +212,20 @@ pub async fn help(ctx: Context<'_>) -> Result<(), Error> {
     let mut collector = collector;
 
     while let Some(interaction) = collector.next().await {
-        let new_page = match interaction.data.custom_id.as_str() {
-            "help_overview" => HelpPage::Overview,
-            "help_conversion" => HelpPage::Conversion,
-            "help_encryption" => HelpPage::Encryption,
-            "help_encoding" => HelpPage::Encoding,
-            "help_compression" => HelpPage::Compression,
-            "help_other" => HelpPage::Other,
-            _ => continue, // Ignore unknown interactions
-        };
-
-        let embed = new_page.create_embed();
-        let buttons = new_page.create_buttons();
-        
-        let action_rows = if buttons.len() <= 5 {
-            vec![CreateActionRow::Buttons(buttons)]
-        } else {
-            vec![
-                CreateActionRow::Buttons(buttons[..5].to_vec()),
-                CreateActionRow::Buttons(buttons[5..].to_vec()),
-            ]
+        let Some(new_page) = HelpPage::from_custom_id(&interaction.data.custom_id) else {
+            continue;
         };
 
         let edit_response = serenity::builder::CreateInteractionResponse::UpdateMessage(
             serenity::builder::CreateInteractionResponseMessage::default()
-                .embed(embed)
-                .components(action_rows)
+                .embed(new_page.create_embed())
+                .components(help_action_rows(new_page.create_buttons())),
         );
 
-        if let Err(e) = interaction.create_response(&ctx.http(), edit_response).await {
+        if let Err(e) = interaction
+            .create_response(&ctx.http(), edit_response)
+            .await
+        {
             eprintln!("Error updating help message: {}", e);
         }
     }

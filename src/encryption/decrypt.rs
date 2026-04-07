@@ -1,10 +1,10 @@
+use crate::{Context, Error};
+use poise::serenity_prelude::{Attachment, CreateAttachment};
+use secrecy::SecretString;
+use serenity::builder::CreateEmbed;
 use std::io::Write;
 use tempfile::Builder;
 use tokio::fs;
-use poise::serenity_prelude::{Attachment, CreateAttachment};
-use serenity::builder::CreateEmbed;
-use secrecy::SecretString;
-use crate::{Context, Error};
 
 fn decrypt_error_embed(message: impl Into<String>) -> CreateEmbed {
     CreateEmbed::new()
@@ -46,30 +46,37 @@ pub async fn decrypt(
     }
 
     // Create original filename by removing .age suffix
-    let original_filename = filename.strip_suffix(".age").unwrap_or(&filename).to_string();
+    let original_filename = filename
+        .strip_suffix(".age")
+        .unwrap_or(&filename)
+        .to_string();
     let original_filename_clone = original_filename.clone();
 
     // Move heavy lifting to blocking task
-    let decrypted_data = match tokio::task::spawn_blocking(move || -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-        let output_file_path = temp_path.join(&original_filename_clone);
+    let decrypted_data = match tokio::task::spawn_blocking(
+        move || -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+            let output_file_path = temp_path.join(&original_filename_clone);
 
-        let input_file = std::fs::File::open(&input_file_path)?;
-        let input_reader = std::io::BufReader::new(input_file);
+            let input_file = std::fs::File::open(&input_file_path)?;
+            let input_reader = std::io::BufReader::new(input_file);
 
-        let output_file = std::fs::File::create(&output_file_path)?;
-        let mut output_writer = std::io::BufWriter::new(output_file);
+            let output_file = std::fs::File::create(&output_file_path)?;
+            let mut output_writer = std::io::BufWriter::new(output_file);
 
-        let decryptor = age::Decryptor::new(input_reader)?;
-        let identity = age::scrypt::Identity::new(SecretString::new(password.clone().into()));
-        let mut reader = decryptor.decrypt(std::iter::once(&identity as &dyn age::Identity))?;
+            let decryptor = age::Decryptor::new(input_reader)?;
+            let identity = age::scrypt::Identity::new(SecretString::new(password.clone().into()));
+            let mut reader = decryptor.decrypt(std::iter::once(&identity as &dyn age::Identity))?;
 
-        std::io::copy(&mut reader, &mut output_writer)?;
-        output_writer.flush()?;
-        drop(output_writer);
+            std::io::copy(&mut reader, &mut output_writer)?;
+            output_writer.flush()?;
+            drop(output_writer);
 
-        let decrypted_data = std::fs::read(&output_file_path)?;
-        Ok(decrypted_data)
-    }).await {
+            let decrypted_data = std::fs::read(&output_file_path)?;
+            Ok(decrypted_data)
+        },
+    )
+    .await
+    {
         Ok(Ok(data)) => data,
         Ok(Err(_)) => {
             let embed = decrypt_error_embed(
@@ -99,8 +106,9 @@ pub async fn decrypt(
     ctx.send(
         poise::CreateReply::default()
             .embed(embed)
-            .attachment(attachment)
-    ).await?;
+            .attachment(attachment),
+    )
+    .await?;
 
     Ok(())
 }

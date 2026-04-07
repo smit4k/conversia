@@ -1,5 +1,5 @@
-use poise::{serenity_prelude as serenity};
-use ::serenity::{all::{CreateActionRow, CreateButton}};
+use ::serenity::all::{CreateActionRow, CreateButton};
+use poise::serenity_prelude as serenity;
 use serenity::builder::CreateEmbed;
 
 use crate::{Context, Error};
@@ -12,12 +12,14 @@ pub async fn about(ctx: Context<'_>) -> Result<(), Error> {
         .description("Conversia is a powerful, multi-purpose file utility bot written in Rust using the serenity and poise frameworks")
         .image("https://raw.githubusercontent.com/smit4k/conversia/master/assets/ConversiaGithubBanner.png")
         .field("Legal", "[Terms of Service](https://github.com/smit4k/conversia/blob/master/TERMS_OF_SERVICE.md)\n[Privacy Policy](https://github.com/smit4k/conversia/blob/master/PRIVACY_POLICY.md)", false);
-        
+
     let mut github_button = CreateButton::new_link("https://github.com/smit4k/conversia");
     github_button = github_button.label("Source Code");
     github_button = github_button.emoji('🔗');
 
-    let mut invite_button = CreateButton::new_link("https://discord.com/oauth2/authorize?client_id=1373693356928012328&permissions=51200&integration_type=0&scope=bot+applications.commands");
+    let mut invite_button = CreateButton::new_link(
+        "https://discord.com/oauth2/authorize?client_id=1373693356928012328&permissions=51200&integration_type=0&scope=bot+applications.commands",
+    );
     invite_button = invite_button.label("Add to server");
 
     let action_row = CreateActionRow::Buttons(vec![invite_button, github_button]);

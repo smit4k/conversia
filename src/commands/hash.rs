@@ -1,10 +1,10 @@
+use crate::utils::format_file_size;
+use crate::{Context, Error};
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::Attachment;
 use serenity::builder::CreateEmbed;
-use sha2::{Sha256, Digest as Sha2Digest};
 use sha1::Sha1;
-use crate::utils::format_file_size;
-use crate::{Context, Error};
+use sha2::{Digest as Sha2Digest, Sha256};
 
 #[derive(Debug, poise::ChoiceParameter)]
 pub enum HashAlgorithm {
@@ -73,9 +73,8 @@ pub async fn hash(
         None => return Ok(()),
     };
 
-    let (hash_result, algorithm_name) = tokio::task::spawn_blocking(move || {
-        compute_hash(&file_data, &algorithm)
-    }).await?;
+    let (hash_result, algorithm_name) =
+        tokio::task::spawn_blocking(move || compute_hash(&file_data, &algorithm)).await?;
 
     let embed = CreateEmbed::new()
         .title("🔐 File Hash Generated")
@@ -107,16 +106,22 @@ pub async fn verify_hash(
         None => return Ok(()),
     };
 
-    let (actual_hash, algorithm_name) = tokio::task::spawn_blocking(move || {
-        compute_hash(&file_data, &algorithm)
-    }).await?;
+    let (actual_hash, algorithm_name) =
+        tokio::task::spawn_blocking(move || compute_hash(&file_data, &algorithm)).await?;
 
     let matches = actual_hash == expected_hash;
     let embed = CreateEmbed::new()
-        .title(if matches { "✅ Valid Checksum" } else { "❌ Invalid Checksum" })
+        .title(if matches {
+            "✅ Valid Checksum"
+        } else {
+            "❌ Invalid Checksum"
+        })
         .field("Expected Hash", format!("```{}```", expected_hash), true)
         .field("Actual Hash", format!("```{}```", actual_hash), true)
-        .footer(serenity::CreateEmbedFooter::new(format!("Algorithm: {}", algorithm_name)))
+        .footer(serenity::CreateEmbedFooter::new(format!(
+            "Algorithm: {}",
+            algorithm_name
+        )))
         .color(if matches { 0x27ae60 } else { 0xff4444 });
 
     ctx.send(poise::CreateReply::default().embed(embed)).await?;

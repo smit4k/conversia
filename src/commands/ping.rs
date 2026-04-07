@@ -1,4 +1,4 @@
-use poise::{serenity_prelude as serenity};
+use poise::serenity_prelude as serenity;
 use serenity::builder::CreateEmbed;
 
 use crate::{Context, Error};
@@ -8,8 +8,8 @@ use crate::{Context, Error};
 pub async fn ping(ctx: Context<'_>) -> Result<(), Error> {
     let shard_manager = ctx.framework().shard_manager();
 
-    let runners  = shard_manager.runners.lock().await;
-    
+    let runners = shard_manager.runners.lock().await;
+
     let latency = if let Some((_, runner)) = runners.iter().next() {
         runner.latency
     } else {
@@ -20,14 +20,18 @@ pub async fn ping(ctx: Context<'_>) -> Result<(), Error> {
         Some(duration) => format!("{}ms", duration.as_millis()),
         None => "Unknown".to_string(),
     };
-    
+
     let embed = CreateEmbed::default()
         .title("Pong!")
         .field("Latency:", latency_text.clone(), true)
-        .color(if latency_text == "Unknown" { 0xff4444 } else { 0x27ae60 });
+        .color(if latency_text == "Unknown" {
+            0xff4444
+        } else {
+            0x27ae60
+        });
 
-        let reply = poise::CreateReply::default().embed(embed);
-        ctx.send(reply).await?;
-        
+    let reply = poise::CreateReply::default().embed(embed);
+    ctx.send(reply).await?;
+
     Ok(())
 }

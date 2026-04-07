@@ -17,9 +17,10 @@ mod utils;
 async fn main() {
     dotenv().ok();
 
-    let token = std::env::var("discord_token").expect("Missing 'discord_token' environment variable");
-    let intents = serenity::GatewayIntents::GUILD_MESSAGES
-        | serenity::GatewayIntents::MESSAGE_CONTENT;
+    let token =
+        std::env::var("discord_token").expect("Missing 'discord_token' environment variable");
+    let intents =
+        serenity::GatewayIntents::GUILD_MESSAGES | serenity::GatewayIntents::MESSAGE_CONTENT;
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {

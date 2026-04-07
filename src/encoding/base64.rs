@@ -1,12 +1,77 @@
+use crate::utils::{detect_file_type, file_stem, format_file_size, is_previewable_text};
+use ::serenity::all::CreateEmbedFooter;
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::Attachment;
-use ::serenity::all::CreateEmbedFooter;
 use serenity::builder::CreateEmbed;
-use crate::utils::{detect_file_type, file_stem, format_file_size, is_previewable_text};
 
-use base64::{engine::general_purpose, Engine};
 use crate::{Context, Error};
+use base64::{Engine, engine::general_purpose};
 
+const EMBED_ERROR_COLOR: u32 = 0xff4444;
+const EMBED_SUCCESS_COLOR: u32 = 0x27ae60;
+const INLINE_PREVIEW_LIMIT: usize = 1900;
+const INLINE_ENCODE_LIMIT: usize = 1024;
+
+fn error_embed(title: &str, message: impl Into<String>) -> CreateEmbed {
+    CreateEmbed::new()
+        .title(title)
+        .description(message.into())
+        .color(EMBED_ERROR_COLOR)
+}
+
+fn encoded_summary_embed(filename: &str, original_len: usize, encoded_len: usize) -> CreateEmbed {
+    CreateEmbed::new()
+        .title("✅ Base64 Encoded")
+        .description(format!(
+            "**Original file:** `{}`\n**Size:** {}\n**Encoded size:** {}",
+            filename,
+            format_file_size(original_len as u64),
+            format_file_size(encoded_len as u64)
+        ))
+        .color(EMBED_SUCCESS_COLOR)
+}
+
+fn decoded_summary_embed(decoded_len: usize) -> CreateEmbed {
+    CreateEmbed::new()
+        .title("✅ Base64 Decoded")
+        .description(format!(
+            "**Decoded size:** {}",
+            format_file_size(decoded_len as u64)
+        ))
+        .color(EMBED_SUCCESS_COLOR)
+}
+
+async fn send_decoded_response(ctx: Context<'_>, decoded: Vec<u8>) -> Result<(), Error> {
+    if is_previewable_text(&decoded) {
+        let decoded_string = String::from_utf8(decoded.clone())
+            .map_err(|e| Error::from(format!("Failed to prepare decoded text: {}", e)))?;
+
+        if decoded_string.len() <= INLINE_PREVIEW_LIMIT {
+            let embed = decoded_summary_embed(decoded.len()).field(
+                "Decoded Data",
+                format!("```\n{}\n```", decoded_string),
+                false,
+            );
+
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+    }
+
+    let attachment = serenity::CreateAttachment::bytes(decoded.clone(), detect_file_type(&decoded));
+    let embed = decoded_summary_embed(decoded.len()).footer(CreateEmbedFooter::new(
+        "Decoded data is attached as a file.",
+    ));
+
+    ctx.send(
+        poise::CreateReply::default()
+            .embed(embed)
+            .attachment(attachment),
+    )
+    .await?;
+
+    Ok(())
+}
 
 /// Encode a file to base64
 #[poise::command(slash_command, ephemeral)]
@@ -15,64 +80,48 @@ pub async fn base64_encode(
     #[description = "File to encode"] file: Attachment,
 ) -> Result<(), Error> {
     ctx.defer().await?;
-    
+
     let file_data = match file.download().await {
         Ok(data) => data,
         Err(e) => {
-            let embed = CreateEmbed::new()
-                .title("❌ Download Failed")
-                .description(format!("Failed to download file: {}", e))
-                .color(0xff4444);
-            
+            let embed = error_embed(
+                "❌ Download Failed",
+                format!("Failed to download file: {}", e),
+            );
             ctx.send(poise::CreateReply::default().embed(embed)).await?;
             return Ok(());
         }
     };
 
     let file_data_clone = file_data.clone();
-    let encoded = tokio::task::spawn_blocking(move || {
-        general_purpose::STANDARD.encode(&file_data_clone)
-    }).await?;
+    let encoded =
+        tokio::task::spawn_blocking(move || general_purpose::STANDARD.encode(&file_data_clone))
+            .await?;
 
-    if encoded.len() > 1024 {  // Leave room for embed formatting
+    let embed = encoded_summary_embed(&file.filename, file_data.len(), encoded.len());
+
+    if encoded.len() > INLINE_ENCODE_LIMIT {
         // Send as file attachment instead
         let encoded_name = file_stem(&file.filename);
-
-        let encoded_bytes = encoded.as_bytes();
         let attachment = serenity::CreateAttachment::bytes(
-            encoded_bytes, 
-            format!("{}_encoded.txt", encoded_name)
+            encoded.as_bytes(),
+            format!("{}_encoded.txt", encoded_name),
         );
-        
-        let embed = CreateEmbed::new()
-            .title("✅ Base64 Encoded")
-            .description(format!(
-                "**Original file:** `{}`\n**Size:** {}\n**Encoded size:** {}",
-                file.filename,
-                format_file_size(file_data.len() as u64),
-                format_file_size(encoded.len() as u64)
-            ))
-            .footer(CreateEmbedFooter::new("Encoded data is attached as a file."))
-            .color(0x27ae60);
+
+        let embed = embed.footer(CreateEmbedFooter::new(
+            "Encoded data is attached as a file.",
+        ));
 
         ctx.send(
             poise::CreateReply::default()
                 .embed(embed)
-                .attachment(attachment)
-        ).await?;
+                .attachment(attachment),
+        )
+        .await?;
     } else {
-        // Send encoded string in embed
-        let embed = CreateEmbed::new()
-            .title("✅ Base64 Encoded")
-            .description(format!(
-                "**Original file:** `{}`\n**Size:** {}\n**Encoded size:** {}",
-                file.filename,
-                format_file_size(file_data.len() as u64),
-                format_file_size(encoded.len() as u64)
-            ))
+        let embed = embed
             .field("Encoded Data", format!("```\n{}\n```", encoded), false)
-            .color(0x27ae60);
-
+            .color(EMBED_SUCCESS_COLOR);
         ctx.send(poise::CreateReply::default().embed(embed)).await?;
     }
 
@@ -92,10 +141,10 @@ pub async fn base64_decode(
         match file.download().await {
             Ok(file_data) => file_data,
             Err(e) => {
-                let embed = CreateEmbed::new()
-                    .title("❌ Download Failed")
-                    .description(format!("Failed to download file: {}", e))
-                    .color(0xff4444);
+                let embed = error_embed(
+                    "❌ Download Failed",
+                    format!("Failed to download file: {}", e),
+                );
                 ctx.send(poise::CreateReply::default().embed(embed)).await?;
                 return Ok(());
             }
@@ -103,62 +152,25 @@ pub async fn base64_decode(
     } else if let Some(string) = string {
         string.trim().as_bytes().to_vec()
     } else {
-        let embed = CreateEmbed::new()
-            .title("❌ No Input Provided")
-            .description("Please provide either a txt file or a base64 encoded string.")
-            .color(0xff4444);
+        let embed = error_embed(
+            "❌ No Input Provided",
+            "Please provide either a txt file or a base64 encoded string.",
+        );
         ctx.send(poise::CreateReply::default().embed(embed)).await?;
         return Ok(());
     };
 
-    let decoded_result = tokio::task::spawn_blocking(move || {
-        general_purpose::STANDARD.decode(&data_to_decode)
-    }).await?;
+    let decoded_result =
+        tokio::task::spawn_blocking(move || general_purpose::STANDARD.decode(&data_to_decode))
+            .await?;
 
     match decoded_result {
-        Ok(decoded) => {
-            if is_previewable_text(&decoded) {
-                let decoded_string = String::from_utf8(decoded.clone())
-                    .map_err(|e| Error::from(format!("Failed to prepare decoded text: {}", e)))?;
-
-                if decoded_string.len() <= 1900 {
-                    let embed = CreateEmbed::new()
-                        .title("✅ Base64 Decoded")
-                        .description(format!("**Decoded size:** {}", format_file_size(decoded.len() as u64)))
-                        .field("Decoded Data", format!("```\n{}\n```", decoded_string), false)
-                        .color(0x27ae60);
-
-                    ctx.send(poise::CreateReply::default().embed(embed)).await?;
-                    return Ok(());
-                }
-            }
-
-                let filename = detect_file_type(&decoded);
-                let attachment = serenity::CreateAttachment::bytes(
-                    decoded.clone(),
-                    filename
-                );
-
-                let embed = CreateEmbed::new()
-                    .title("✅ Base64 Decoded")
-                    .description(format!(
-                        "**Decoded size:** {}",
-                        format_file_size(decoded.len() as u64)
-                    ))
-                    .footer(CreateEmbedFooter::new("Decoded data is attached as a file."))
-                    .color(0x27ae60);
-
-                ctx.send(
-                    poise::CreateReply::default()
-                        .embed(embed)
-                        .attachment(attachment)
-                ).await?;
-        }
+        Ok(decoded) => send_decoded_response(ctx, decoded).await?,
         Err(e) => {
-            let embed = CreateEmbed::new()
-                .title("❌ Decode Failed")
-                .description(format!("Failed to decode base64 data: {}", e))
-                .color(0xff4444);
+            let embed = error_embed(
+                "❌ Decode Failed",
+                format!("Failed to decode base64 data: {}", e),
+            );
             ctx.send(poise::CreateReply::default().embed(embed)).await?;
         }
     }

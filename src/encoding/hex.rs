@@ -1,11 +1,88 @@
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::Attachment;
-use serenity::builder::CreateEmbed;
 use serenity::all::CreateEmbedFooter;
+use serenity::builder::CreateEmbed;
 
-use crate::{Context, Error};
 use crate::utils::{detect_file_type, file_stem, format_file_size, is_previewable_text};
+use crate::{Context, Error};
 use hex;
+
+const EMBED_ERROR_COLOR: u32 = 0xff4444;
+const EMBED_SUCCESS_COLOR: u32 = 0x27ae60;
+const INLINE_PREVIEW_LIMIT: usize = 1900;
+const INLINE_ENCODE_LIMIT: usize = 1024;
+
+fn error_embed(title: &str, message: impl Into<String>) -> CreateEmbed {
+    CreateEmbed::new()
+        .title(title)
+        .description(message.into())
+        .color(EMBED_ERROR_COLOR)
+}
+
+fn encoded_summary_embed(filename: &str, original_size: &str, encoded_size: &str) -> CreateEmbed {
+    CreateEmbed::new()
+        .title("✅ Hex Encoded")
+        .description(format!(
+            "**Original file:** `{}`\n**Size:** {}\n**Encoded size:** {}",
+            filename, original_size, encoded_size
+        ))
+        .color(EMBED_SUCCESS_COLOR)
+}
+
+fn decoded_summary_embed(
+    original_filename: Option<&str>,
+    encoded_len: usize,
+    decoded_len: usize,
+) -> CreateEmbed {
+    CreateEmbed::new()
+        .title("✅ Hex Decoded")
+        .description(format!(
+            "**Original file:** `{}`\n**Encoded size:** {}\n**Decoded size:** {}",
+            original_filename.unwrap_or("N/A"),
+            format_file_size(encoded_len as u64),
+            format_file_size(decoded_len as u64)
+        ))
+        .color(EMBED_SUCCESS_COLOR)
+}
+
+async fn send_decoded_response(
+    ctx: Context<'_>,
+    original_filename: Option<&str>,
+    encoded_len: usize,
+    decoded_data: Vec<u8>,
+) -> Result<(), Error> {
+    if is_previewable_text(&decoded_data) {
+        let decoded_string = String::from_utf8(decoded_data.clone())
+            .map_err(|e| Error::from(format!("Failed to prepare decoded text: {}", e)))?;
+
+        if decoded_string.len() <= INLINE_PREVIEW_LIMIT {
+            let embed = decoded_summary_embed(original_filename, encoded_len, decoded_data.len())
+                .field(
+                    "Decoded Data",
+                    format!("```\n{}\n```", decoded_string),
+                    false,
+                );
+
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+    }
+
+    let attachment =
+        serenity::CreateAttachment::bytes(decoded_data.clone(), detect_file_type(&decoded_data));
+    let embed = decoded_summary_embed(original_filename, encoded_len, decoded_data.len()).footer(
+        CreateEmbedFooter::new("Decoded data is attached as a file."),
+    );
+
+    ctx.send(
+        poise::CreateReply::default()
+            .embed(embed)
+            .attachment(attachment),
+    )
+    .await?;
+
+    Ok(())
+}
 
 /// Encode a file to hex
 #[poise::command(slash_command, ephemeral)]
@@ -18,10 +95,10 @@ pub async fn hex_encode(
     let file_data = match file.download().await {
         Ok(data) => data,
         Err(e) => {
-            let embed = CreateEmbed::new()
-                .title("❌ Download Failed")
-                .description(format!("Failed to download file: {}", e))
-                .color(0xff4444);
+            let embed = error_embed(
+                "❌ Download Failed",
+                format!("Failed to download file: {}", e),
+            );
             ctx.send(poise::CreateReply::default().embed(embed)).await?;
             return Ok(());
         }
@@ -30,41 +107,29 @@ pub async fn hex_encode(
     let encoded = tokio::task::spawn_blocking({
         let data = file_data.clone();
         move || hex::encode(&data)
-    }).await?;
+    })
+    .await?;
 
     let original_size = format_file_size(file_data.len() as u64);
     let encoded_size = format_file_size(encoded.len() as u64);
+    let embed = encoded_summary_embed(&file.filename, &original_size, &encoded_size);
 
-    if encoded.len() > 1024 {
+    if encoded.len() > INLINE_ENCODE_LIMIT {
         let filename = format!("{}_encoded.txt", file_stem(&file.filename));
         let encoded_bytes = encoded.into_bytes();
         let attachment = serenity::CreateAttachment::bytes(encoded_bytes, filename);
-
-        let embed = CreateEmbed::new()
-            .title("✅ Hex Encoded")
-            .description(format!(
-                "**Original file:** `{}`\n**Size:** {}\n**Encoded size:** {}",
-                file.filename, original_size, encoded_size
-            ))
-            .footer(CreateEmbedFooter::new("Encoded data is attached as a file."))
-            .color(0x27ae60);
+        let embed = embed.footer(CreateEmbedFooter::new(
+            "Encoded data is attached as a file.",
+        ));
 
         ctx.send(
             poise::CreateReply::default()
                 .embed(embed)
-                .attachment(attachment)
-        ).await?;
+                .attachment(attachment),
+        )
+        .await?;
     } else {
-        let embed = CreateEmbed::new()
-            .title("✅ Hex Encoded")
-            .description(format!(
-                "**Original file:** `{}`\n**Size:** {}\n**Encoded size:** {}",
-                file.filename,
-                original_size,
-                encoded_size,
-            ))
-            .field("Encoded Data", format!("```\n{}\n```", encoded), false)
-            .color(0x27ae60);
+        let embed = embed.field("Encoded Data", format!("```\n{}\n```", encoded), false);
 
         ctx.send(poise::CreateReply::default().embed(embed)).await?;
     }
@@ -87,12 +152,12 @@ pub async fn hex_decode(
             Ok(file_data) => {
                 let string_data = String::from_utf8_lossy(&file_data).to_string();
                 (string_data, Some(filename))
-            },
+            }
             Err(e) => {
-                let embed = CreateEmbed::new()
-                    .title("❌ Download Failed")
-                    .description(format!("Failed to download file: {}", e))
-                    .color(0xff4444);
+                let embed = error_embed(
+                    "❌ Download Failed",
+                    format!("Failed to download file: {}", e),
+                );
                 ctx.send(poise::CreateReply::default().embed(embed)).await?;
                 return Ok(());
             }
@@ -100,63 +165,33 @@ pub async fn hex_decode(
     } else if let Some(s) = hex_string {
         (s.trim().to_string(), None)
     } else {
-        let embed = CreateEmbed::new()
-            .title("❌ No Input Provided")
-            .description("Please provide either a hex encoded file or string.")
-            .color(0xff4444);
+        let embed = error_embed(
+            "❌ No Input Provided",
+            "Please provide either a hex encoded file or string.",
+        );
         ctx.send(poise::CreateReply::default().embed(embed)).await?;
         return Ok(());
     };
 
     let hex_input_clone = hex_input.clone();
-    let decoded_data = match tokio::task::spawn_blocking(move || hex::decode(hex_input_clone)).await? {
+    let decoded_data = match tokio::task::spawn_blocking(move || hex::decode(hex_input_clone))
+        .await?
+    {
         Ok(data) => data,
         Err(e) => {
-            let embed = CreateEmbed::new()
-                .title("❌ Decoding Failed")
-                .description(format!("Failed to decode hex: {}", e))
-                .color(0xff4444);
+            let embed = error_embed("❌ Decoding Failed", format!("Failed to decode hex: {}", e));
             ctx.send(poise::CreateReply::default().embed(embed)).await?;
             return Ok(());
         }
     };
 
-    if is_previewable_text(&decoded_data) {
-        let decoded_string = String::from_utf8(decoded_data.clone())
-            .map_err(|e| Error::from(format!("Failed to prepare decoded text: {}", e)))?;
-
-        if decoded_string.len() <= 1900 {
-            let embed = CreateEmbed::new()
-                .title("✅ Hex Decoded")
-                .description(format!(
-                    "**Original file:** `{}`\n**Encoded size:** {}\n**Decoded size:** {}",
-                    original_filename.as_deref().unwrap_or("N/A"),
-                    format_file_size(hex_input.len() as u64),
-                    format_file_size(decoded_data.len() as u64)
-                ))
-                .field("Decoded Data", format!("```\n{}\n```", decoded_string), false)
-                .color(0x27ae60);
-
-            ctx.send(poise::CreateReply::default().embed(embed)).await?;
-            return Ok(());
-        }
-    }
-
-    let filename = detect_file_type(&decoded_data);
-    let attachment = serenity::CreateAttachment::bytes(decoded_data.clone(), filename);
-
-    let embed = CreateEmbed::new()
-        .title("✅ Hex Decoded")
-        .description(format!(
-            "**Original file:** `{}`\n**Encoded size:** {}\n**Decoded size:** {}",
-            original_filename.as_deref().unwrap_or("N/A"),
-            format_file_size(hex_input.len() as u64),
-            format_file_size(decoded_data.len() as u64)
-        ))
-        .footer(CreateEmbedFooter::new("Decoded data is attached as a file."))
-        .color(0x27ae60);
-
-    ctx.send(poise::CreateReply::default().embed(embed).attachment(attachment)).await?;
+    send_decoded_response(
+        ctx,
+        original_filename.as_deref(),
+        hex_input.len(),
+        decoded_data,
+    )
+    .await?;
 
     Ok(())
 }

@@ -1,8 +1,8 @@
-use tempfile::Builder;
-use tokio::fs;
-use poise::serenity_prelude::{Attachment, CreateEmbed};
 use id3::{Tag as Id3Tag, TagLike};
 use metaflac::Tag as FlacTag;
+use poise::serenity_prelude::{Attachment, CreateEmbed};
+use tempfile::Builder;
+use tokio::fs;
 
 use crate::{Context, Error};
 
@@ -69,7 +69,9 @@ pub async fn audio_meta(
                 Err(err) => Err(format!("FLAC error: {}", err)),
             }
         }
-    }).await.unwrap_or_else(|_| Err("Metadata reading task panicked".to_string()))?;
+    })
+    .await
+    .unwrap_or_else(|_| Err("Metadata reading task panicked".to_string()))?;
 
     // Create response embed
     let embed = CreateEmbed::default()
