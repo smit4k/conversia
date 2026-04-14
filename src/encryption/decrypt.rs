@@ -1,3 +1,4 @@
+use crate::attachments::{sanitize_filename, validate_attachment_size, validate_output_size};
 use crate::{Context, Error};
 use poise::serenity_prelude::{Attachment, CreateAttachment};
 use secrecy::SecretString;
@@ -22,6 +23,18 @@ pub async fn decrypt(
 ) -> Result<(), Error> {
     ctx.defer().await?;
 
+    if let Err(message) = validate_attachment_size(&file) {
+        let embed = decrypt_error_embed(message);
+        ctx.send(poise::CreateReply::default().embed(embed)).await?;
+        return Ok(());
+    }
+
+    if password.trim().is_empty() {
+        let embed = decrypt_error_embed("Password cannot be empty.");
+        ctx.send(poise::CreateReply::default().embed(embed)).await?;
+        return Ok(());
+    }
+
     // Create temporary directory for file operations
     let temp_dir = Builder::new().prefix("decrypt_").tempdir()?;
     let temp_path = temp_dir.path().to_path_buf();
@@ -35,10 +48,10 @@ pub async fn decrypt(
             return Ok(());
         }
     };
-    let filename = file.filename.clone();
+    let safe_filename = sanitize_filename(&file.filename);
 
     // Write file to temp directory
-    let input_file_path = temp_path.join(&filename);
+    let input_file_path = temp_path.join("input.age");
     if fs::write(&input_file_path, &file_data).await.is_err() {
         let embed = decrypt_error_embed("Failed to prepare the file for decryption.");
         ctx.send(poise::CreateReply::default().embed(embed)).await?;
@@ -46,16 +59,16 @@ pub async fn decrypt(
     }
 
     // Create original filename by removing .age suffix
-    let original_filename = filename
+    let original_filename = safe_filename
         .strip_suffix(".age")
-        .unwrap_or(&filename)
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or("decrypted")
         .to_string();
-    let original_filename_clone = original_filename.clone();
 
     // Move heavy lifting to blocking task
     let decrypted_data = match tokio::task::spawn_blocking(
         move || -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
-            let output_file_path = temp_path.join(&original_filename_clone);
+            let output_file_path = temp_path.join("output");
 
             let input_file = std::fs::File::open(&input_file_path)?;
             let input_reader = std::io::BufReader::new(input_file);
@@ -92,13 +105,19 @@ pub async fn decrypt(
         }
     };
 
+    if let Err(message) = validate_output_size(decrypted_data.len(), "Decrypted file") {
+        let embed = decrypt_error_embed(message);
+        ctx.send(poise::CreateReply::default().embed(embed)).await?;
+        return Ok(());
+    }
+
     let attachment = CreateAttachment::bytes(decrypted_data, &original_filename);
 
     let embed = CreateEmbed::new()
         .title("✅ File Decrypted Successfully")
         .description(format!(
             "Encrypted file: `{}`\nDecrypted file: `{}`",
-            file.filename, original_filename
+            safe_filename, original_filename
         ))
         .field("Decryption Method", "Age (ChaCha20-Poly1305)", true)
         .color(0x27ae60);

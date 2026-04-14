@@ -1,3 +1,4 @@
+use crate::attachments::{sanitize_filename, validate_attachment_size, validate_output_size};
 use poise::serenity_prelude as serenity;
 use poise::serenity_prelude::Attachment;
 use serenity::all::CreateEmbedFooter;
@@ -68,6 +69,7 @@ async fn send_decoded_response(
         }
     }
 
+    validate_output_size(decoded_data.len(), "Decoded data").map_err(Error::from)?;
     let attachment =
         serenity::CreateAttachment::bytes(decoded_data.clone(), detect_file_type(&decoded_data));
     let embed = decoded_summary_embed(original_filename, encoded_len, decoded_data.len()).footer(
@@ -92,6 +94,12 @@ pub async fn hex_encode(
 ) -> Result<(), Error> {
     ctx.defer().await?;
 
+    if let Err(message) = validate_attachment_size(&file) {
+        let embed = error_embed("❌ File Too Large", message);
+        ctx.send(poise::CreateReply::default().embed(embed)).await?;
+        return Ok(());
+    }
+
     let file_data = match file.download().await {
         Ok(data) => data,
         Err(e) => {
@@ -115,7 +123,13 @@ pub async fn hex_encode(
     let embed = encoded_summary_embed(&file.filename, &original_size, &encoded_size);
 
     if encoded.len() > INLINE_ENCODE_LIMIT {
-        let filename = format!("{}_encoded.txt", file_stem(&file.filename));
+        if let Err(message) = validate_output_size(encoded.len(), "Encoded data") {
+            let embed = error_embed("❌ Encoding Failed", message);
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+
+        let filename = format!("{}_encoded.txt", sanitize_filename(&file_stem(&file.filename)));
         let encoded_bytes = encoded.into_bytes();
         let attachment = serenity::CreateAttachment::bytes(encoded_bytes, filename);
         let embed = embed.footer(CreateEmbedFooter::new(
@@ -147,6 +161,12 @@ pub async fn hex_decode(
     ctx.defer().await?;
 
     let (hex_input, original_filename) = if let Some(file) = file {
+        if let Err(message) = validate_attachment_size(&file) {
+            let embed = error_embed("❌ File Too Large", message);
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+
         let filename = file.filename.clone();
         match file.download().await {
             Ok(file_data) => {
@@ -163,7 +183,9 @@ pub async fn hex_decode(
             }
         }
     } else if let Some(s) = hex_string {
-        (s.trim().to_string(), None)
+        let trimmed = s.trim();
+        validate_output_size(trimmed.len(), "Encoded input").map_err(Error::from)?;
+        (trimmed.to_string(), None)
     } else {
         let embed = error_embed(
             "❌ No Input Provided",

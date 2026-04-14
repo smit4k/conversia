@@ -1,3 +1,4 @@
+use crate::attachments::{sanitize_filename, validate_attachment_size, validate_output_size};
 use crate::utils::format_file_size;
 use crate::{Context, Error};
 use poise::serenity_prelude as serenity;
@@ -52,6 +53,15 @@ pub async fn zip(
 ) -> Result<(), Error> {
     ctx.defer().await?;
 
+    if let Err(message) = validate_attachment_size(&file) {
+        let embed = CreateEmbed::new()
+            .title("❌ File Too Large")
+            .description(message)
+            .color(0xff4444);
+        ctx.send(poise::CreateReply::default().embed(embed)).await?;
+        return Ok(());
+    }
+
     let file_data = match file.download().await {
         Ok(data) => data,
         Err(e) => {
@@ -69,8 +79,8 @@ pub async fn zip(
         .unwrap_or_default()
         .to_string_lossy()
         .to_string();
-    let output_filename = format!("{}.zip", original_name);
-    let internal_filename = strip_all_extensions(&file.filename);
+    let output_filename = format!("{}.zip", sanitize_filename(&original_name));
+    let internal_filename = sanitize_filename(&strip_all_extensions(&file.filename));
 
     // Use tempfile for safe, auto-cleaned temporary storage
     let temp_file = Builder::new()
@@ -82,6 +92,15 @@ pub async fn zip(
     match create_zip_archive(&internal_filename, &file_data, &temp_path) {
         Ok(()) => match tokio::fs::read(&temp_path).await {
             Ok(compressed_data) => {
+                if let Err(message) = validate_output_size(compressed_data.len(), "Compressed file") {
+                    let embed = CreateEmbed::new()
+                        .title("❌ Compression Failed")
+                        .description(message)
+                        .color(0xff4444);
+                    ctx.send(poise::CreateReply::default().embed(embed)).await?;
+                    return Ok(());
+                }
+
                 let original_size = file_data.len() as f64;
                 let compressed_size = compressed_data.len() as f64;
                 let ratio = ((original_size - compressed_size) / original_size * 100.0).max(0.0);

@@ -1,3 +1,4 @@
+use crate::attachments::validate_attachment_size;
 use id3::{Tag as Id3Tag, TagLike};
 use metaflac::Tag as FlacTag;
 use poise::serenity_prelude::{Attachment, CreateEmbed};
@@ -12,14 +13,27 @@ pub async fn audio_meta(
     ctx: Context<'_>,
     #[description = "Audio file (.mp3 or .flac) to extract metadata from"] file: Attachment,
 ) -> Result<(), Error> {
+    ctx.defer().await?;
+
     // Check file extension
-    let is_mp3 = file.filename.ends_with(".mp3");
-    let is_flac = file.filename.ends_with(".flac");
+    let lowercase_name = file.filename.to_ascii_lowercase();
+    let is_mp3 = lowercase_name.ends_with(".mp3");
+    let is_flac = lowercase_name.ends_with(".flac");
 
     if !is_mp3 && !is_flac {
         let embed = CreateEmbed::default()
             .title("❌ Invalid File Format")
             .description("Please upload a valid `.mp3` or `.flac` file.")
+            .color(0xff4444);
+        let reply = poise::CreateReply::default().embed(embed);
+        ctx.send(reply).await?;
+        return Ok(());
+    }
+
+    if let Err(message) = validate_attachment_size(&file) {
+        let embed = CreateEmbed::default()
+            .title("❌ File Too Large")
+            .description(message)
             .color(0xff4444);
         let reply = poise::CreateReply::default().embed(embed);
         ctx.send(reply).await?;

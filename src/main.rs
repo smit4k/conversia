@@ -11,6 +11,7 @@ mod compression;
 mod conversion;
 mod encoding;
 mod encryption;
+mod attachments;
 mod utils;
 
 #[tokio::main]

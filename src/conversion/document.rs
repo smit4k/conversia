@@ -1,3 +1,4 @@
+use crate::attachments::{sanitize_filename, validate_attachment_size, validate_output_size};
 use pandoc;
 use poise::serenity_prelude::{Attachment, CreateAttachment};
 use serenity::builder::CreateEmbed;
@@ -57,7 +58,7 @@ impl OutputFormat {
 
 fn output_filename(input_filename: &str, output_format: OutputFormat) -> String {
     let base = file_stem(input_filename);
-    format!("{}.{}", base, output_format.extension())
+    format!("{}.{}", sanitize_filename(&base), output_format.extension())
 }
 
 fn document_error_message(error: &str, output_format: OutputFormat) -> String {
@@ -115,6 +116,8 @@ pub async fn convert_document_inner(
     file: &Attachment,
     output_format: OutputFormat,
 ) -> Result<(Vec<u8>, String), Error> {
+    validate_attachment_size(file).map_err(Error::from)?;
+
     let original_extension = file.filename.rsplit('.').next().unwrap_or("tmp");
     let input_temp_file = Builder::new()
         .suffix(&format!(".{}", original_extension))
@@ -154,6 +157,7 @@ pub async fn convert_document_inner(
     let converted_data = fs::read(&output_path)
         .await
         .map_err(|e| Error::from(format!("Failed to read converted file: {}", e)))?;
+    validate_output_size(converted_data.len(), "Converted document").map_err(Error::from)?;
     let output_filename = output_filename(&file.filename, output_format);
 
     // Return converted bytes and output filename

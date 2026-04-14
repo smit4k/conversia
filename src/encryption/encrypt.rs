@@ -1,3 +1,4 @@
+use crate::attachments::{sanitize_filename, validate_attachment_size, validate_output_size};
 use crate::{Context, Error};
 use poise::serenity_prelude::{Attachment, CreateAttachment};
 use secrecy::SecretString;
@@ -22,6 +23,18 @@ pub async fn encrypt(
 ) -> Result<(), Error> {
     ctx.defer().await?;
 
+    if let Err(message) = validate_attachment_size(&file) {
+        let embed = encrypt_error_embed(message);
+        ctx.send(poise::CreateReply::default().embed(embed)).await?;
+        return Ok(());
+    }
+
+    if password.trim().is_empty() {
+        let embed = encrypt_error_embed("Password cannot be empty.");
+        ctx.send(poise::CreateReply::default().embed(embed)).await?;
+        return Ok(());
+    }
+
     // Create temporary directory for file operations
     let temp_dir = Builder::new().prefix("encrypt_").tempdir()?;
     let temp_path = temp_dir.path().to_path_buf();
@@ -35,10 +48,10 @@ pub async fn encrypt(
             return Ok(());
         }
     };
-    let filename = file.filename.clone();
+    let safe_filename = sanitize_filename(&file.filename);
 
     // Write file to temp directory
-    let input_file_path = temp_path.join(&filename);
+    let input_file_path = temp_path.join("input");
     if fs::write(&input_file_path, &file_data).await.is_err() {
         let embed = encrypt_error_embed("Failed to prepare the file for encryption.");
         ctx.send(poise::CreateReply::default().embed(embed)).await?;
@@ -49,7 +62,7 @@ pub async fn encrypt(
     let encrypted_data = match tokio::task::spawn_blocking(
         move || -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
             // Create output file path
-            let output_file_path = temp_path.join(format!("{}.age", filename));
+            let output_file_path = temp_path.join("output.age");
 
             // Encrypt the file using age
             let passphrase = SecretString::new(password.clone().into());
@@ -93,7 +106,13 @@ pub async fn encrypt(
         }
     };
 
-    let encrypted_filename = format!("{}.age", file.filename);
+    if let Err(message) = validate_output_size(encrypted_data.len(), "Encrypted file") {
+        let embed = encrypt_error_embed(message);
+        ctx.send(poise::CreateReply::default().embed(embed)).await?;
+        return Ok(());
+    }
+
+    let encrypted_filename = format!("{}.age", safe_filename);
 
     // Create attachment from encrypted file
     let attachment = CreateAttachment::bytes(encrypted_data, &encrypted_filename);
@@ -103,7 +122,7 @@ pub async fn encrypt(
         .title("✅ File Encrypted Successfully")
         .description(format!(
             "Original file: `{}`\nEncrypted file: `{}`\nKeep your password safe. It is required to decrypt the file later.",
-            file.filename, encrypted_filename
+            safe_filename, encrypted_filename
         ))
         .field("Encryption Method", "Age (ChaCha20-Poly1305)", true)
         .color(0x27ae60);

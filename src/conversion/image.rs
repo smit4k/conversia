@@ -1,3 +1,6 @@
+use crate::attachments::{
+    sanitize_filename, validate_attachment_size, validate_image_dimensions, validate_output_size,
+};
 use crate::{Context, Error};
 use image::{DynamicImage, ImageOutputFormat};
 use poise::serenity_prelude::CreateAttachment;
@@ -51,7 +54,7 @@ fn generate_output_filename(input_filename: &str, format: OutputFormat) -> Strin
     let base = input_filename
         .rsplit_once('.')
         .map_or(input_filename, |(base, _)| base);
-    format!("{}.{}", base, format.extension())
+    format!("{}.{}", sanitize_filename(base), format.extension())
 }
 
 /// Optimize image based on output format
@@ -72,15 +75,17 @@ fn optimize_image_for_format(img: DynamicImage, format: OutputFormat) -> Dynamic
 
 /// Estimate output buffer size to reduce allocations
 fn estimate_output_size(img: &DynamicImage, format: OutputFormat) -> usize {
-    let pixel_count = (img.width() * img.height()) as usize;
-    match format {
+    let pixel_count = u64::from(img.width()) * u64::from(img.height());
+    let estimated = match format {
         OutputFormat::Jpg => pixel_count / 4, // ~25% of raw size for JPEG
         OutputFormat::Png => pixel_count * 2, // ~200% for PNG (conservative)
         OutputFormat::Webp => pixel_count / 3, // ~33% for WebP
         OutputFormat::Bmp => pixel_count * 3, // ~300% for BMP (uncompressed)
         OutputFormat::Gif => pixel_count,     // ~100% for GIF
         OutputFormat::Tiff => pixel_count * 2, // ~200% for TIFF
-    }
+    };
+
+    estimated.min(usize::MAX as u64) as usize
 }
 
 /// Create error embed for conversion failure
@@ -96,6 +101,8 @@ pub async fn convert_image_inner(
     file: &Attachment,
     output_format: OutputFormat,
 ) -> Result<(Vec<u8>, String), Error> {
+    validate_attachment_size(file).map_err(Error::from)?;
+
     // Download file data
     let file_data = file
         .download()
@@ -110,12 +117,13 @@ pub async fn convert_image_inner(
     .await
     .map_err(|e| Error::from(format!("Image loading task failed: {}", e)))??;
 
+    validate_image_dimensions(img.width(), img.height()).map_err(Error::from)?;
+
     // Optimize image for target format
     let optimized_img = optimize_image_for_format(img, output_format);
 
     // Perform encoding in blocking task
     let output_bytes = tokio::task::spawn_blocking(move || {
-        // Pre-allocate buffer with estimated size
         let estimated_size = estimate_output_size(&optimized_img, output_format);
         let mut buf = Cursor::new(Vec::with_capacity(estimated_size));
 
@@ -128,6 +136,8 @@ pub async fn convert_image_inner(
     })
     .await
     .map_err(|e| Error::from(format!("Image encoding task failed: {}", e)))??;
+
+    validate_output_size(output_bytes.len(), "Converted image").map_err(Error::from)?;
 
     // Generate output filename
     let output_filename = generate_output_filename(&file.filename, output_format);

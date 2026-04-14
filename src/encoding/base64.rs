@@ -1,3 +1,4 @@
+use crate::attachments::{sanitize_filename, validate_attachment_size, validate_output_size};
 use crate::utils::{detect_file_type, file_stem, format_file_size, is_previewable_text};
 use ::serenity::all::CreateEmbedFooter;
 use poise::serenity_prelude as serenity;
@@ -58,6 +59,7 @@ async fn send_decoded_response(ctx: Context<'_>, decoded: Vec<u8>) -> Result<(),
         }
     }
 
+    validate_output_size(decoded.len(), "Decoded data").map_err(Error::from)?;
     let attachment = serenity::CreateAttachment::bytes(decoded.clone(), detect_file_type(&decoded));
     let embed = decoded_summary_embed(decoded.len()).footer(CreateEmbedFooter::new(
         "Decoded data is attached as a file.",
@@ -81,6 +83,12 @@ pub async fn base64_encode(
 ) -> Result<(), Error> {
     ctx.defer().await?;
 
+    if let Err(message) = validate_attachment_size(&file) {
+        let embed = error_embed("❌ File Too Large", message);
+        ctx.send(poise::CreateReply::default().embed(embed)).await?;
+        return Ok(());
+    }
+
     let file_data = match file.download().await {
         Ok(data) => data,
         Err(e) => {
@@ -101,8 +109,14 @@ pub async fn base64_encode(
     let embed = encoded_summary_embed(&file.filename, file_data.len(), encoded.len());
 
     if encoded.len() > INLINE_ENCODE_LIMIT {
+        if let Err(message) = validate_output_size(encoded.len(), "Encoded data") {
+            let embed = error_embed("❌ Encode Failed", message);
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+
         // Send as file attachment instead
-        let encoded_name = file_stem(&file.filename);
+        let encoded_name = sanitize_filename(&file_stem(&file.filename));
         let attachment = serenity::CreateAttachment::bytes(
             encoded.as_bytes(),
             format!("{}_encoded.txt", encoded_name),
@@ -138,6 +152,12 @@ pub async fn base64_decode(
     ctx.defer().await?;
 
     let data_to_decode = if let Some(file) = file {
+        if let Err(message) = validate_attachment_size(&file) {
+            let embed = error_embed("❌ File Too Large", message);
+            ctx.send(poise::CreateReply::default().embed(embed)).await?;
+            return Ok(());
+        }
+
         match file.download().await {
             Ok(file_data) => file_data,
             Err(e) => {
@@ -150,7 +170,9 @@ pub async fn base64_decode(
             }
         }
     } else if let Some(string) = string {
-        string.trim().as_bytes().to_vec()
+        let trimmed = string.trim();
+        validate_output_size(trimmed.len(), "Encoded input").map_err(Error::from)?;
+        trimmed.as_bytes().to_vec()
     } else {
         let embed = error_embed(
             "❌ No Input Provided",

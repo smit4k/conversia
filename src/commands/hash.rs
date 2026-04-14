@@ -1,3 +1,4 @@
+use crate::attachments::validate_attachment_size;
 use crate::utils::format_file_size;
 use crate::{Context, Error};
 use poise::serenity_prelude as serenity;
@@ -10,9 +11,9 @@ use sha2::{Digest as Sha2Digest, Sha256};
 pub enum HashAlgorithm {
     #[name = "SHA-256"]
     Sha256,
-    #[name = "SHA-1"]
+    #[name = "SHA-1 (legacy/insecure)"]
     Sha1,
-    #[name = "MD5"]
+    #[name = "MD5 (legacy/insecure)"]
     Md5,
     #[name = "BLAKE3"]
     Blake3,
@@ -30,12 +31,12 @@ fn compute_hash(data: &[u8], algorithm: &HashAlgorithm) -> (String, &'static str
         HashAlgorithm::Sha1 => {
             let mut hasher = Sha1::new();
             hasher.update(data);
-            (format!("{:x}", hasher.finalize()), "SHA-1")
+            (format!("{:x}", hasher.finalize()), "SHA-1 (legacy/insecure)")
         }
         HashAlgorithm::Md5 => {
             let mut hasher = md5::Context::new();
             hasher.consume(data);
-            (format!("{:x}", hasher.compute()), "MD5")
+            (format!("{:x}", hasher.compute()), "MD5 (legacy/insecure)")
         }
         HashAlgorithm::Blake3 => {
             let hash = blake3::hash(data);
@@ -46,6 +47,15 @@ fn compute_hash(data: &[u8], algorithm: &HashAlgorithm) -> (String, &'static str
 
 /// Download an attachment, returning its bytes or sending an error embed on failure.
 async fn download_file(ctx: Context<'_>, file: &Attachment) -> Result<Option<Vec<u8>>, Error> {
+    if let Err(message) = validate_attachment_size(file) {
+        let embed = CreateEmbed::new()
+            .title("❌ File Too Large")
+            .description(message)
+            .color(0xff4444);
+        ctx.send(poise::CreateReply::default().embed(embed)).await?;
+        return Ok(None);
+    }
+
     match file.download().await {
         Ok(data) => Ok(Some(data)),
         Err(e) => {
@@ -101,6 +111,7 @@ pub async fn verify_hash(
 ) -> Result<(), Error> {
     ctx.defer().await?;
 
+    let expected_hash = expected_hash.trim().to_ascii_lowercase();
     let file_data = match download_file(ctx, &file).await? {
         Some(data) => data,
         None => return Ok(()),
